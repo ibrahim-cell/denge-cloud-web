@@ -1,10 +1,11 @@
 name: Unpack Denge Cloud Web package
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - "Denge-Cloud-Web-1.1.1-Vercel-Ready.zip"
+      - "DengeCloudWeb-1.1.1-GitHub-Upload.zip"
 
 permissions:
   contents: write
@@ -22,13 +23,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f "Denge-Cloud-Web-1.1.1-Vercel-Ready.zip"
+          ZIP_FILE="DengeCloudWeb-1.1.1-GitHub-Upload.zip"
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "Upload the DengeCloudWeb-1.1.1-GitHub-Upload.zip file to the repository root, or run this workflow only while the ZIP is present."
+            exit 1
+          fi
           rm -rf .denge-unpack
           mkdir .denge-unpack
-          unzip -q "Denge-Cloud-Web-1.1.1-Vercel-Ready.zip" -d .denge-unpack
-          test -f ".denge-unpack/Denge-Cloud-Web-1.1.1/index.html"
-          cp -a ".denge-unpack/Denge-Cloud-Web-1.1.1/." .
-          rm -rf .denge-unpack "Denge-Cloud-Web-1.1.1-Vercel-Ready.zip"
+          unzip -q "$ZIP_FILE" -d .denge-unpack
+          SITE_DIR=".denge-unpack/Denge-Cloud-Web-1.1.1"
+          test -f "$SITE_DIR/index.html"
+          test -d "$SITE_DIR/assets/brand"
+          cp -a "$SITE_DIR/." .
+          rm -rf .denge-unpack "$ZIP_FILE"
+
+      - name: Verify extracted files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f index.html
+          test -f cloud-config.js
+          test -f cloud-sync.js
+          test -d assets/brand
+          find assets/brand -maxdepth 1 -type f | sort
+          echo "Denge Cloud Web source and brand assets are present."
 
       - name: Commit unpacked application
         shell: bash
@@ -38,6 +56,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if ! git diff --cached --quiet; then
-            git commit -m "Add Denge Cloud Web 1.1.1 source and assets"
+            git commit -m "Add Denge Cloud Web 1.1.1 source and brand assets"
             git push origin HEAD:main
           fi
