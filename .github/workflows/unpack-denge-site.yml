@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/unpack-denge-site.yml"
       - "DengeCloudWeb-1.1.1-GitHub-Upload.zip"
 
 permissions:
@@ -25,7 +26,7 @@ jobs:
           set -euo pipefail
           ZIP_FILE="DengeCloudWeb-1.1.1-GitHub-Upload.zip"
           if [ ! -f "$ZIP_FILE" ]; then
-            echo "Upload the DengeCloudWeb-1.1.1-GitHub-Upload.zip file to the repository root, or run this workflow only while the ZIP is present."
+            echo "Upload $ZIP_FILE to the repository root before running this workflow."
             exit 1
           fi
           rm -rf .denge-unpack
