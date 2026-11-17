@@ -112,6 +112,7 @@
   let pushTimer = null;
   let pollTimer = null;
   let syncing = false;
+  let pushPromise = null;
   let initialized = false;
   let suppressLocal = false;
   let currentUserId = session && session.user ? session.user.id : null;
@@ -414,45 +415,59 @@
     pushTimer = setTimeout(() => pushLatest().catch(handleSyncError), 850);
   }
   async function pushLatest() {
-    if (syncing || !session || !session.user || !navigator.onLine || !configured) return;
-    syncing = true;
-    const uid = session.user.id;
-    try {
-      setStatus('syncing', text('sending'));
-      let attempts = 0;
-      while (attempts < 4) {
-        attempts++;
-        const local = currentLocal();
-        const result = await rpcSave(local);
-        if (result && (result.status === 'saved' || result.status === 'inserted')) {
-          saveBase(uid, Number(result.revision || 0), result.payload || local);
-          const newest = currentLocal();
-          if (same(newest, local)) {
-            clearPending(uid);
-            status.lastSyncAt = new Date().toISOString();
-            saveUserLocal(uid);
-            setStatus('synced', text('synced'));
-            startPolling();
-            return;
-          }
-          storePending(uid, newest);
-          continue;
-        }
-        if (result && result.status === 'conflict') {
-          const remote = result.payload || {};
-          const merged = mergeValue(baseSnapshot || {}, local, remote);
-          saveBase(uid, Number(result.revision || 0), remote);
-          applyLocal(merged, true);
-          storePending(uid, merged);
-          continue;
-        }
-        throw new Error(result && result.message ? localizeError(result.message) : text('syncFailed'));
-      }
-      setStatus('queued', text('queued'));
-      setTimeout(() => schedulePush(), 2500);
-    } finally {
-      syncing = false;
+    if (!session || !session.user || !navigator.onLine || !configured) return;
+    if (pushPromise) {
+      await pushPromise;
+      const uid = session && session.user ? session.user.id : null;
+      const queued = uid ? readJson(pendingKey(uid), null) : null;
+      if (queued && !same(currentLocal(), baseSnapshot)) return pushLatest();
+      return;
     }
+    const uid = session.user.id;
+    const run = (async () => {
+      syncing = true;
+      try {
+        setStatus('syncing', text('sending'));
+        let attempts = 0;
+        while (attempts < 6) {
+          attempts++;
+          const local = currentLocal();
+          const result = await rpcSave(local);
+          if (result && (result.status === 'saved' || result.status === 'inserted')) {
+            saveBase(uid, Number(result.revision || 0), result.payload || local);
+            const newest = currentLocal();
+            if (same(newest, local)) {
+              clearPending(uid);
+              status.lastSyncAt = new Date().toISOString();
+              saveUserLocal(uid);
+              setStatus('synced', text('synced'));
+              startPolling();
+              return;
+            }
+            storePending(uid, newest);
+            continue;
+          }
+          if (result && result.status === 'conflict') {
+            const remote = result.payload || {};
+            const latestLocal = currentLocal();
+            const previousBase = baseSnapshot || {};
+            const merged = mergeValue(previousBase, latestLocal, remote);
+            saveBase(uid, Number(result.revision || 0), remote);
+            applyLocal(merged, true);
+            storePending(uid, merged);
+            continue;
+          }
+          throw new Error(result && result.message ? localizeError(result.message) : text('syncFailed'));
+        }
+        setStatus('queued', text('queued'));
+        setTimeout(() => schedulePush(), 2500);
+      } finally {
+        syncing = false;
+      }
+    })();
+    pushPromise = run;
+    try { await run; }
+    finally { if (pushPromise === run) pushPromise = null; }
   }
   function handleSyncError(error) {
     status.pending = !!(session && session.user);
@@ -594,7 +609,11 @@
     if (!session || !session.user) throw new Error(text('loginRequired'));
     if (!navigator.onLine) throw new Error(text('offlineLogin'));
     await pushLatest();
+    const uid = session.user.id;
+    const queued = readJson(pendingKey(uid), null);
+    if (queued) throw new Error(text('syncFailed'));
     await pollRemote();
+    if (status.pending) throw new Error(text('syncFailed'));
     return getStatus();
   }
   function localSave(data) {

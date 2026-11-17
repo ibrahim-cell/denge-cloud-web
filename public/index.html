@@ -1336,7 +1336,50 @@ function showPinUnlock(){
  const html='<div class="settings-modal" id="pinLockModal"><div class="pin-modal-card"><div class="pin-modal-icon">'+sicon('shield')+'</div><h3>Denge kilitli</h3><p>Finansal verilerine devam etmek için güvenlik PIN’ini gir.</p><input id="unlockPin" class="pin-field" inputmode="numeric" maxlength="4" type="password" placeholder="••••" autocomplete="off"><div class="pin-error" id="unlockErr"></div><div class="pin-actions"><button class="pin-primary" style="grid-column:1/-1" id="unlockBtn">Kilidi Aç</button></div></div></div>';
  document.body.insertAdjacentHTML('beforeend',html);const i=document.getElementById('unlockPin'),err=document.getElementById('unlockErr');i.focus();const unlock=async()=>{const ok=await verifyPin(i.value);if(ok){appLocked=false;document.getElementById('pinLockModal').remove();if(window.__dengeMaybeShowCloudAuth)setTimeout(window.__dengeMaybeShowCloudAuth,120)}else{err.textContent='PIN yanlış. Tekrar deneyin.';i.value='';i.focus()}};document.getElementById('unlockBtn').onclick=unlock;i.onkeydown=e=>{if(e.key==='Enter')unlock()};
 }
-function showClearDataConfirm(){const html='<div class="settings-modal" id="clearDataModal"><div class="confirm-card"><div class="confirm-icon">'+sicon('trash')+'</div><h3>Verileri temizle</h3><p>Tüm finansal veriler silinecek. Bu işlem geri alınamaz. Tema ve uygulama tercihlerin korunur.</p><div class="confirm-actions"><button type="button" class="confirm-cancel" id="clearCancel">Vazgeç</button><button type="button" class="confirm-danger" id="clearConfirm">Verileri Sil</button></div></div></div>';document.body.insertAdjacentHTML('beforeend',html);const m=document.getElementById('clearDataModal');document.getElementById('clearCancel').onclick=()=>m.remove();document.getElementById('clearConfirm').onclick=()=>{const theme=data.settings.theme||'Açık',notifications=data.settings.notifications!==false,currency=data.settings.currency||'TRY';data={transactions:[],accounts:[{id:1,name:'Nakit',balance:0,openingBalance:0},{id:2,name:'Banka',balance:0,openingBalance:0},{id:3,name:'Kredi Kartı',balance:0,openingBalance:0}],categories:{income:['Maaş','Ek Gelir','Yatırım','Freelance','Diğer'],expense:['Market','Fatura','Ulaşım','Yemek','Alışveriş','Eğlence','Sağlık','Diğer']},budgets:{},goals:[],settings:{theme,notifications,currency,security:false,pin:''}};save();m.remove();page='home';render()};m.onclick=e=>{if(e.target===m)m.remove()}}
+function showClearDataConfirm(){
+ const cloud=window.DengeCloud&&window.DengeCloud.getStatus?window.DengeCloud.getStatus():null;
+ const signedIn=!!(cloud&&cloud.userId);
+ const en=data.settings.language==='en';
+ const title=en?'Clear financial data':'Verileri temizle';
+ const description=signedIn
+  ?(en?'This clears financial records on this device and sends the empty state to your Denge Cloud account and other devices. This cannot be undone.':'Bu cihazdaki finansal kayıtlar temizlenecek ve boş durum Denge Cloud hesabına, ardından diğer cihazlarına gönderilecek. Bu işlem geri alınamaz.')
+  :(en?'This clears financial data only on this device. Sign in to Denge Cloud to synchronize changes across devices.':'Bu işlem yalnızca bu cihazdaki finansal verileri temizler. Değişikliği diğer cihazlara göndermek için Denge Cloud hesabına giriş yapmalısın.');
+ const html='<div class="settings-modal" id="clearDataModal"><div class="confirm-card"><div class="confirm-icon">'+sicon('trash')+'</div><h3>'+title+'</h3><p>'+description+'</p><div class="confirm-actions"><button type="button" class="confirm-cancel" id="clearCancel">'+(en?'Cancel':'Vazgeç')+'</button><button type="button" class="confirm-danger" id="clearConfirm">'+(en?'Clear data':'Verileri Sil')+'</button></div></div></div>';
+ document.body.insertAdjacentHTML('beforeend',html);
+ const modal=document.getElementById('clearDataModal'),button=document.getElementById('clearConfirm');
+ document.getElementById('clearCancel').onclick=()=>modal.remove();
+ button.onclick=async()=>{
+  if(button.disabled)return;
+  button.disabled=true;
+  const previous=data.settings||{};
+  data={
+   transactions:[],
+   accounts:[{id:1,name:'Nakit',balance:0,openingBalance:0},{id:2,name:'Banka',balance:0,openingBalance:0},{id:3,name:'Kredi Kartı',balance:0,openingBalance:0}],
+   categories:{income:['Maaş','Ek Gelir','Yatırım','Freelance','Diğer'],expense:['Market','Fatura','Ulaşım','Yemek','Alışveriş','Eğlence','Sağlık','Diğer']},
+   budgets:{},debts:[],goals:[],recurring:[],categoryIcons:{},
+   settings:{theme:previous.theme||'Açık',notifications:previous.notifications!==false,currency:previous.currency||'TRY',security:false,pin:'',profileName:previous.profileName||'',profilePhoto:previous.profilePhoto||'',language:previous.language||'tr'}
+  };
+  save();modal.remove();page='home';render();
+  const current=window.DengeCloud&&window.DengeCloud.getStatus?window.DengeCloud.getStatus():null;
+  if(current&&current.userId){
+   if(navigator.onLine){
+    try{
+     await window.DengeCloud.syncNow();
+     updateCloudPanel();
+     toast(en?'Financial data cleared and synchronized to your account.':'Veriler temizlendi ve Denge Cloud hesabına eşitlendi.');
+    }catch(error){
+     updateCloudPanel();
+     showAlertCard(window.DengeCloud&&window.DengeCloud.getLocalizedError?window.DengeCloud.getLocalizedError(error):(error.message||'Eşitleme tamamlanamadı.'),'Denge Cloud','error');
+    }
+   }else{
+    toast(en?'Data cleared on this device. Cloud sync is queued until you reconnect.':'Veriler bu cihazda temizlendi. İnternet gelince buluta gönderilecek.');
+   }
+  }else{
+   toast(en?'Data cleared on this device only.':'Veriler yalnızca bu cihazda temizlendi.');
+  }
+ };
+ modal.onclick=e=>{if(e.target===modal)modal.remove()};
+}
 
 function showGoalModal(){
  const html='<div class="settings-modal" id="goalModal"><div class="settings-modal-card goal-modal-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon('target')+'</span><div><h3>Finansal hedef ekle</h3><p>Hedefini belirle, ilerlemeni takip et.</p></div></div><div class="goal-fields"><div class="goal-field"><label>Hedef adı</label><input id="goalName" placeholder="Örn. Yeni telefon"></div><div class="goal-field"><label>Hedef tutarı</label><input id="goalTarget" inputmode="decimal" placeholder="2.000"></div><div class="goal-field"><label>Mevcut birikim</label><input id="goalSaved" inputmode="decimal" placeholder="0"></div><div class="goal-field"><label>Hedef tarihi</label><input id="goalDate" type="date"></div></div><div class="goal-actions"><button type="button" class="goal-cancel" id="goalCancel">Vazgeç</button><button type="button" class="goal-primary" id="goalSave">Hedefi Kaydet</button></div></div></div>';
