@@ -81,9 +81,9 @@
     try {
       const bridge=getBridge();
       const appData=bridge&&typeof bridge.getData==='function'?bridge.getData():null;
-      if(appData&&appData.settings&&appData.settings.syncLanguage==='en')return 'en';
+      if(appData&&appData.settings&&appData.settings.language==='en')return 'en';
       const raw=localStorage.getItem('denge-v3');
-      if(raw){const parsed=JSON.parse(raw);if(parsed.settings&&parsed.settings.syncLanguage==='en')return 'en';}
+      if(raw){const parsed=JSON.parse(raw);if(parsed.settings&&parsed.settings.language==='en')return 'en';}
     } catch (_) {}
     return 'tr';
   }
