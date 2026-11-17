@@ -9,6 +9,8 @@
   const URL = String(cfg.url || '').replace(/\/$/, '');
   const KEY = String(cfg.publishableKey || '');
   const AUTH_KEY = 'denge-cloud-session-v1';
+  const TAB_AUTH_KEY = 'denge-cloud-session-tab-v1';
+  const REMEMBER_KEY = 'denge-cloud-remember-v1';
   const ACTIVE_USER_KEY = 'denge-cloud-active-user-v1';
   const BASE_PREFIX = 'denge-cloud-base-v1:';
   const LOCAL_PREFIX = 'denge-cloud-local-v1:';
@@ -16,6 +18,8 @@
   const configured = /^https:\/\//i.test(URL) && KEY.length > 10;
 
   let session = readJson(AUTH_KEY, null);
+  if (!session) { try { const rawSession = sessionStorage.getItem(TAB_AUTH_KEY); session = rawSession ? JSON.parse(rawSession) : null; } catch (_) { session = null; } }
+  let rememberSession = readJson(REMEMBER_KEY, true) !== false;
   let baseSnapshot = null;
   let baseRevision = 0;
   let pushTimer = null;
@@ -145,8 +149,17 @@
   }
   function persistSession(next) {
     session = next || null;
-    if (session) writeJson(AUTH_KEY, session);
-    else { try { localStorage.removeItem(AUTH_KEY); } catch (_) {} }
+    if (session) {
+      if (rememberSession) {
+        writeJson(AUTH_KEY, session);
+        try { sessionStorage.removeItem(TAB_AUTH_KEY); } catch (_) {}
+      } else {
+        try { localStorage.removeItem(AUTH_KEY); sessionStorage.setItem(TAB_AUTH_KEY, JSON.stringify(session)); } catch (_) {}
+      }
+    } else {
+      try { localStorage.removeItem(AUTH_KEY); } catch (_) {}
+      try { sessionStorage.removeItem(TAB_AUTH_KEY); } catch (_) {}
+    }
     currentUserId = session && session.user ? session.user.id : null;
     status.userId = currentUserId;
     status.userEmail = session && session.user ? session.user.email || '' : '';
@@ -432,24 +445,39 @@
     persistSession(next);
     await bootstrapAccount();
   }
-  async function signIn(email, password) {
+  async function signIn(email, password, remember) {
     if (!configured) throw new Error('Bulut bağlantısı henüz yapılandırılmadı.');
     if (!navigator.onLine) throw new Error('Giriş yapmak için internet bağlantısı gerekiyor.');
+    rememberSession = remember !== false;
+    writeJson(REMEMBER_KEY, rememberSession);
     const result = await authRequest('token?grant_type=password', { email: String(email).trim(), password: String(password) });
     await activateSession(result);
     return getStatus();
   }
-  async function signUp(email, password) {
+  async function signUp(email, password, username, remember) {
     if (!configured) throw new Error('Bulut bağlantısı henüz yapılandırılmadı.');
     if (!navigator.onLine) throw new Error('Hesap oluşturmak için internet bağlantısı gerekiyor.');
     if (String(password).length < 8) throw new Error('Şifre en az 8 karakter olmalı.');
-    const result = await authRequest('signup', { email: String(email).trim(), password: String(password) });
+    rememberSession = remember !== false;
+    writeJson(REMEMBER_KEY, rememberSession);
+    const redirect = encodeURIComponent(window.location.origin + '/');
+    const result = await authRequest('signup?redirect_to=' + redirect, {
+      email: String(email).trim(),
+      password: String(password),
+      data: { display_name: String(username || '').trim(), full_name: String(username || '').trim() }
+    });
     if (result && result.access_token && result.user) {
       await activateSession(result);
       return { confirmationRequired: false, status: getStatus() };
     }
     setStatus('confirmation', 'Doğrulama e-postası gönderildiyse önce e-postanı onayla, ardından giriş yap.');
     return { confirmationRequired: true, status: getStatus() };
+  }
+  async function resetPassword(email) {
+    if (!configured) throw new Error('Bulut bağlantısı henüz yapılandırılmadı.');
+    if (!navigator.onLine) throw new Error('Şifre sıfırlamak için internet bağlantısı gerekiyor.');
+    await authRequest('recover?redirect_to=' + encodeURIComponent(window.location.origin + '/'), { email: String(email).trim() });
+    return true;
   }
   async function signOut() {
     const uid = session && session.user ? session.user.id : null;
@@ -522,6 +550,7 @@
     init,
     signIn,
     signUp,
+    resetPassword,
     signOut,
     syncNow,
     localSave,

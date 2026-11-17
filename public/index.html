@@ -376,6 +376,39 @@
 .cloud-modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.cloud-modal-actions button{height:43px;border-radius:14px;font-size:12px;font-weight:800}.cloud-modal-actions .cloud-login{background:linear-gradient(135deg,#7568ee,#5b4fe0);color:#fff}.cloud-modal-actions .cloud-register{background:#eeecff;color:#5f53d1}
 .cloud-modal-foot{display:flex;justify-content:space-between;gap:10px;margin-top:10px}.cloud-modal-foot button{color:#7d8291;font-size:11px;font-weight:700;padding:8px}
 .dark .cloud-panel{background:linear-gradient(135deg,#24213f,#191b29);border-color:#373354}.dark .cloud-panel p{color:#a5aabe}.dark .cloud-user{color:#b4aaff}.dark .cloud-state{background:#292b3a;color:#b4bacb}.dark .cloud-state.ok{background:#153b2e;color:#74d8ad}.dark .cloud-state.warn{background:#40331d;color:#f2cc76}.dark .cloud-state.err{background:#48232b;color:#ff9aa5}.dark .cloud-panel-title span:first-child{background:#302c53;color:#b7adff}.dark .cloud-actions button{background:#302c53;color:#c0baff}.dark .cloud-actions button.primary-cloud{background:linear-gradient(135deg,#7568ee,#5b4fe0);color:#fff}.dark .cloud-actions button.danger-cloud{background:#41252d;color:#ff9ba7}.dark .cloud-modal-card{background:#191b29;color:#eef0fa}.dark .cloud-modal-card>p{color:#a5aabe}.dark .cloud-field label{color:#b7bdd0}.dark .cloud-field input{background:#222536;border-color:#34384d;color:#f2f3fa}.dark .cloud-modal-actions .cloud-register{background:#302c53;color:#c0baff}.dark .cloud-modal-foot button{color:#a5aabe}
+
+/* Denge Cloud full-screen authentication */
+.cloud-auth-overlay{z-index:10000;overflow-y:auto;background:linear-gradient(135deg,rgba(13,17,52,.97),rgba(45,22,113,.96) 54%,rgba(7,73,105,.96));backdrop-filter:blur(22px) saturate(.72);-webkit-backdrop-filter:blur(22px) saturate(.72);padding:26px}
+.cloud-auth-overlay:before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 16% 18%,rgba(44,220,235,.30),transparent 34%),radial-gradient(ellipse at 83% 23%,rgba(235,70,185,.26),transparent 31%),radial-gradient(ellipse at 76% 88%,rgba(107,73,239,.34),transparent 35%);opacity:.9}
+.cloud-auth-card{position:relative;z-index:1;width:min(100%,440px);max-height:calc(100vh - 52px);overflow:auto;border:1px solid rgba(255,255,255,.86);border-radius:29px;background:#fff;padding:45px 34px 28px;box-shadow:0 30px 90px rgba(4,5,24,.38);color:#20243a;text-align:left}
+.cloud-auth-close{position:absolute;right:15px;top:13px;width:34px;height:34px;border-radius:50%;background:#f0f1f7;color:#7c8293;font-size:23px;line-height:1}
+.cloud-auth-emblem{width:72px;height:72px;border-radius:50%;padding:6px;background:linear-gradient(140deg,#29c7dc,#7564ef,#ec62bd);box-shadow:0 8px 24px rgba(103,88,239,.28);margin:-12px auto 15px;position:relative;display:grid;place-items:center}
+.cloud-auth-emblem img{width:100%;height:100%;object-fit:contain;border-radius:50%;background:#fff}
+.cloud-auth-lock{position:absolute;right:-3px;bottom:-2px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#7059ed;color:#fff;border:2px solid #fff}
+.cloud-auth-lock svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.cloud-auth-brand{text-align:center;color:#695ce7;font-size:11px;font-weight:900;letter-spacing:2px}
+.cloud-auth-card h2{text-align:center;color:#35b4cc;font-size:25px;line-height:1.2;margin:8px 0 7px;font-weight:850}
+.cloud-auth-intro{text-align:center;color:#9298a8;font-size:12px;line-height:1.55;margin:0 0 23px}
+.cloud-auth-form{display:grid;gap:12px}
+.cloud-auth-card .cloud-field{margin:0}
+.cloud-auth-card .cloud-field label{font-size:11px;color:#8b91a0;margin:0 0 6px 2px}
+.cloud-auth-card .cloud-field input{height:48px;border:1px solid #e6e7ed;background:#f1f2f5;border-radius:999px;padding:0 17px;font-size:13px;color:#252b3b}
+.cloud-auth-card .cloud-field input:focus{background:#fff;border-color:#38b7d0;box-shadow:0 0 0 3px rgba(56,183,208,.13)}
+.cloud-auth-remember{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 1px 1px;font-size:11px;color:#9298a7}
+.cloud-auth-remember label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.cloud-auth-remember input{accent-color:#39b8d0}
+.cloud-auth-link{border:0;background:none;color:#35aeca;font-size:11px;font-weight:750;padding:5px 0}
+.cloud-auth-error{min-height:16px;text-align:center;font-size:11px;color:#d54e63}
+.cloud-auth-error.success{color:#13865e}
+.cloud-auth-submit{width:100%;height:49px;border-radius:999px;background:linear-gradient(100deg,#36bed0,#34b0d0);color:#fff;font-size:12px;font-weight:900;letter-spacing:.5px;box-shadow:0 9px 20px rgba(51,178,205,.2)}
+.cloud-auth-submit:disabled{opacity:.55;cursor:wait}
+.cloud-auth-switch{text-align:center;color:#8990a0;font-size:11px;margin-top:17px}
+.cloud-auth-switch button{border:0;background:none;color:#32aec8;font-size:11px;font-weight:850;padding:3px 2px}
+.cloud-auth-offline{display:block;margin:15px auto 0;border:0;background:none;color:#9da2af;font-size:10px;text-decoration:underline;text-underline-offset:3px;padding:6px}
+.cloud-auth-success{padding:15px;border-radius:16px;background:#eaf8f1;color:#187c59;text-align:center;font-size:12px;line-height:1.6;margin-top:8px}
+.cloud-auth-success button{display:block;margin:12px auto 0;padding:10px 18px;border-radius:999px;background:#35b5a0;color:#fff;font-weight:800;font-size:11px}
+@media(max-width:520px){.cloud-auth-overlay{padding:16px}.cloud-auth-card{padding:39px 23px 23px;border-radius:25px;max-height:calc(100vh - 32px)}.cloud-auth-card h2{font-size:23px}}
+
 @media(min-width:900px){
  body{background:#efedf6}.app{display:grid;grid-template-columns:236px minmax(0,1fr);background:#f7f5ff;min-height:100vh}
  .shell{grid-column:2;grid-row:1;width:100%;max-width:none;margin:0;padding:30px clamp(24px,4vw,64px) 56px;min-height:100vh}
@@ -1022,7 +1055,122 @@ function cloudSettings(){const s=window.DengeCloud?window.DengeCloud.getStatus()
 function settings(){return header('Ayarlar')+cloudSettings()+'<div class="setting-group"><button class="setting" id="theme"><span class="setleft"><span class="seticon">'+sicon('moon')+'</span><b>Tema</b></span><span class="setright">'+esc(data.settings.theme||'Açık')+' ›</span></button><button class="setting" id="notify"><span class="setleft"><span class="seticon">'+sicon('bell')+'</span><b>Bildirimler</b></span><span class="switch '+(data.settings.notifications?'on':'')+'"><i></i></span></button></div><div class="setting-group"><button class="setting" data-nav="categories"><span class="setleft"><span class="seticon">'+sicon('tag')+'</span><b>Kategoriler</b></span><span class="setright">›</span></button><button class="setting" data-nav="accounts"><span class="setleft"><span class="seticon">'+sicon('card')+'</span><b>Hesaplar</b></span><span class="setright">›</span></button><button class="setting" data-nav="budget"><span class="setleft"><span class="seticon">'+sicon('chart')+'</span><b>Bütçe</b></span><span class="setright">›</span></button><button class="setting" data-nav="recurring"><span class="setleft"><span class="seticon">'+sicon('calendar')+'</span><b>Tekrarlayan İşlemler</b></span><span class="setright">›</span></button></div><div class="setting-group"><button class="setting" id="currency"><span class="setleft"><span class="seticon">'+sicon('currency')+'</span><b>Para birimi</b></span><span class="setright">'+esc(data.settings.currency||'TRY')+' ›</span></button><button class="setting" id="security"><span class="setleft"><span class="seticon">'+sicon('shield')+'</span><b>Güvenlik</b></span><span class="switch '+(data.settings.security?'on':'')+'"><i></i></span></button></div><div class="setting-group"><div class="backup-row"><button class="setting" id="backup"><span class="setleft"><span class="seticon">'+sicon('cloud')+'</span><b>Yedekle</b></span></button><button class="setting" id="restore"><span class="setleft"><span class="seticon">'+sicon('cloud')+'</span><b>Yedek yükle</b></span></button></div><div class="settings-note">Yedek dosyası JSON olarak dışa/içe aktarılır.</div></div><div class="setting-group"><button class="setting danger-setting" id="clearData"><span class="setleft"><span class="seticon">'+sicon('trash')+'</span><b>Veri temizle</b></span><span class="setright">›</span></button></div><div class="setting-group"><button class="setting" data-nav="about"><span class="setleft"><span class="seticon">'+sicon('info')+'</span><b>Denge hakkında</b></span><span class="setright">1.1.0 ›</span></button></div><input id="restoreFile" type="file" accept="application/json,.json" hidden>'}
 
 function updateCloudPanel(supplied){const s=supplied||(window.DengeCloud&&window.DengeCloud.getStatus?window.DengeCloud.getStatus():null);if(!s)return;const pill=document.getElementById('cloudStatePill'),msg=document.getElementById('cloudMessage'),email=document.getElementById('cloudUserEmail'),auth=document.getElementById('cloudAuthOpen'),sync=document.getElementById('cloudSyncNow'),out=document.getElementById('cloudSignOut'),last=document.getElementById('cloudLastSync');const [label,cls]=cloudStatusInfo(s);if(pill){pill.textContent=label;pill.className='cloud-state '+cls}if(msg)msg.textContent=s.message||'';if(email){email.textContent=s.userEmail||'';email.hidden=!s.userId}if(auth)auth.hidden=!!s.userId;if(sync)sync.hidden=!s.userId;if(out)out.hidden=!s.userId;if(last)last.textContent=s.lastSyncAt?'Son eşitleme: '+new Date(s.lastSyncAt).toLocaleString('tr-TR'):(s.pending?'Bekleyen değişiklikler cihazda saklanıyor.':'')}
-function showCloudAuthModal(){const status=window.DengeCloud&&window.DengeCloud.getStatus?window.DengeCloud.getStatus():null;if(!status||!status.configured){showAlertCard('Supabase Project URL ve Publishable Key ayarları cloud-config.js dosyasına girilmeli. Kurulum adımları README içinde bulunuyor.','Denge Cloud kurulumu','info');return}const html='<div class="settings-modal" id="cloudAuthModal"><div class="cloud-modal-card"><div class="pin-modal-icon">'+sicon('cloud')+'</div><h3>Denge Cloud hesabı</h3><p>Android ve bilgisayardaki finans verilerini tek hesapta eşitle. İlk kayıt ve giriş internet ister; bağlantı kesilirse yerel kayıtlarına devam edebilirsin.</p><div class="cloud-field"><label for="cloudEmail">E-posta</label><input id="cloudEmail" type="email" autocomplete="email" placeholder="ornek@eposta.com"></div><div class="cloud-field"><label for="cloudPassword">Şifre</label><input id="cloudPassword" type="password" autocomplete="current-password" minlength="8" placeholder="En az 8 karakter"></div><div class="cloud-modal-error" id="cloudAuthError" role="alert"></div><div class="cloud-modal-actions"><button type="button" class="cloud-login" id="cloudLoginBtn">Giriş yap</button><button type="button" class="cloud-register" id="cloudRegisterBtn">Hesap oluştur</button></div><div class="cloud-modal-foot"><button type="button" id="cloudAuthCancel">Çevrimdışı devam et</button><button type="button" id="cloudAuthHelp">Çevrimdışı kullanım hakkında</button></div></div></div>';document.body.insertAdjacentHTML('beforeend',html);const modal=document.getElementById('cloudAuthModal'),email=document.getElementById('cloudEmail'),password=document.getElementById('cloudPassword'),error=document.getElementById('cloudAuthError'),login=document.getElementById('cloudLoginBtn'),register=document.getElementById('cloudRegisterBtn');const close=()=>modal.remove();document.getElementById('cloudAuthCancel').onclick=()=>{try{localStorage.setItem('denge-cloud-offline-continue-v1','1')}catch(_){}close()};document.getElementById('cloudAuthHelp').onclick=()=>{error.textContent='Hesapla ilk giriş internet ister. Giriş yaptıktan sonra işlemler çevrimdışı kaydedilir ve bağlantı gelince eşitlenir.'};modal.onclick=e=>{if(e.target===modal)close()};const run=async action=>{const mail=email.value.trim(),pw=password.value;if(!mail||!/^\S+@\S+\.\S+$/.test(mail)){error.textContent='Geçerli bir e-posta adresi gir.';email.focus();return}if(pw.length<8){error.textContent='Şifre en az 8 karakter olmalı.';password.focus();return}login.disabled=register.disabled=true;error.textContent='İşlem yapılıyor…';try{if(action==='login'){await window.DengeCloud.signIn(mail,pw);try{localStorage.removeItem('denge-cloud-offline-continue-v1')}catch(_){}close();updateCloudPanel();toast('Denge Cloud hesabına giriş yapıldı.')}else{const result=await window.DengeCloud.signUp(mail,pw);if(!result.confirmationRequired){try{localStorage.removeItem('denge-cloud-offline-continue-v1')}catch(_){}}if(result.confirmationRequired){error.textContent='Doğrulama e-postası gönderildi. E-postanı onayladıktan sonra giriş yap.';password.value=''}else{close();updateCloudPanel();toast('Denge Cloud hesabı oluşturuldu.')}}}catch(e){error.textContent=e.message||'İşlem tamamlanamadı.'}finally{login.disabled=register.disabled=false}};login.onclick=()=>run('login');register.onclick=()=>run('signup');password.onkeydown=e=>{if(e.key==='Enter')run('login')};email.focus()}
+function showCloudAuthModal(initialMode='login'){
+ const status=window.DengeCloud&&window.DengeCloud.getStatus?window.DengeCloud.getStatus():null;
+ if(!status||!status.configured){showAlertCard('Supabase bağlantı ayarı yüklenemedi. Lütfen sayfayı yenile.','Denge Cloud','error');return}
+ if(document.getElementById('cloudAuthModal'))return;
+ const overlay=document.createElement('div');
+ overlay.id='cloudAuthModal';
+ overlay.className='settings-modal cloud-auth-overlay';
+ overlay.innerHTML=`
+  <section class="cloud-modal-card cloud-auth-card" role="dialog" aria-modal="true" aria-labelledby="cloudAuthTitle">
+   <button type="button" class="cloud-auth-close" id="cloudAuthClose" aria-label="Kapat">×</button>
+   <div class="cloud-auth-emblem"><img src="./assets/brand/denge-lotus-192.png" alt="Denge"><span class="cloud-auth-lock"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span></div>
+   <div class="cloud-auth-brand">DENGE CLOUD</div>
+   <h2 id="cloudAuthTitle">Tekrar hoş geldin</h2>
+   <p class="cloud-auth-intro" id="cloudAuthIntro">Telefonunda ve bilgisayarında aynı finans hesabını kullan.</p>
+   <form class="cloud-auth-form" id="cloudAuthForm" novalidate>
+    <div class="cloud-field" id="cloudNameWrap" hidden><label for="cloudName">Adın / kullanıcı adın</label><input id="cloudName" type="text" autocomplete="name" placeholder="Adını yaz"></div>
+    <div class="cloud-field"><label for="cloudEmail">E-posta adresi</label><input id="cloudEmail" type="email" autocomplete="email" placeholder="ornek@eposta.com" required></div>
+    <div class="cloud-field"><label for="cloudPassword">Şifre</label><input id="cloudPassword" type="password" autocomplete="current-password" minlength="8" placeholder="En az 8 karakter" required></div>
+    <div class="cloud-field" id="cloudConfirmWrap" hidden><label for="cloudPasswordConfirm">Şifreyi tekrar gir</label><input id="cloudPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Şifreni yeniden yaz"></div>
+    <div class="cloud-auth-remember" id="cloudRememberWrap"><label><input id="cloudRemember" type="checkbox" checked> Beni hatırla</label><button type="button" class="cloud-auth-link" id="cloudForgot">Şifremi unuttum?</button></div>
+    <div class="cloud-auth-error" id="cloudAuthError" role="alert" aria-live="polite"></div>
+    <button type="submit" class="cloud-auth-submit" id="cloudSubmitBtn">GİRİŞ YAP</button>
+   </form>
+   <div class="cloud-auth-success" id="cloudAuthSuccess" hidden></div>
+   <div class="cloud-auth-switch" id="cloudModeSwitch"></div>
+   <button type="button" class="cloud-auth-offline" id="cloudAuthOffline">Şimdilik çevrimdışı devam et</button>
+  </section>`;
+ document.body.appendChild(overlay);
+ let mode=initialMode==='signup'?'signup':'login';
+ let busy=false;
+ const form=overlay.querySelector('#cloudAuthForm');
+ const nameWrap=overlay.querySelector('#cloudNameWrap');
+ const confirmWrap=overlay.querySelector('#cloudConfirmWrap');
+ const rememberWrap=overlay.querySelector('#cloudRememberWrap');
+ const success=overlay.querySelector('#cloudAuthSuccess');
+ const error=overlay.querySelector('#cloudAuthError');
+ const submit=overlay.querySelector('#cloudSubmitBtn');
+ const switchLine=overlay.querySelector('#cloudModeSwitch');
+ const title=overlay.querySelector('#cloudAuthTitle');
+ const intro=overlay.querySelector('#cloudAuthIntro');
+ const email=overlay.querySelector('#cloudEmail');
+ const password=overlay.querySelector('#cloudPassword');
+ const passwordConfirm=overlay.querySelector('#cloudPasswordConfirm');
+ const name=overlay.querySelector('#cloudName');
+ const remember=overlay.querySelector('#cloudRemember');
+ const close=()=>{
+  window.__dengeCloudAuthDismissed=true;
+  overlay.remove();
+ };
+ overlay.querySelector('#cloudAuthClose').onclick=close;
+ overlay.querySelector('#cloudAuthOffline').onclick=close;
+ overlay.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+ function setMode(next){
+  mode=next;
+  form.hidden=false;
+  success.hidden=true;
+  nameWrap.hidden=mode!=='signup';
+  confirmWrap.hidden=mode!=='signup';
+  rememberWrap.hidden=mode==='signup';
+  title.textContent=mode==='signup'?'Yeni hesap oluştur':'Tekrar hoş geldin';
+  intro.textContent=mode==='signup'?'Denge hesabını oluştur; telefon ve bilgisayarında aynı kayıtları kullan.':'Telefonunda ve bilgisayarında aynı finans hesabını kullan.';
+  password.autocomplete=mode==='signup'?'new-password':'current-password';
+  submit.textContent=mode==='signup'?'HESAP OLUŞTUR':'GİRİŞ YAP';
+  submit.disabled=false;
+  error.textContent='';
+  error.className='cloud-auth-error';
+  switchLine.innerHTML=mode==='signup'?'Zaten hesabın var mı? <button type="button" id="cloudModeSwitchButton">Giriş yap</button>':'Hesabın yok mu? <button type="button" id="cloudModeSwitchButton">Hesap oluştur</button>';
+  switchLine.querySelector('#cloudModeSwitchButton').onclick=()=>setMode(mode==='login'?'signup':'login');
+  if(mode==='login')email.focus();else name.focus();
+ }
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(busy)return;
+  const mail=email.value.trim();
+  const pw=password.value;
+  if(!mail||!/^\\S+@\\S+\\.\\S+$/.test(mail)){error.textContent='Geçerli bir e-posta adresi gir.';email.focus();return}
+  if(pw.length<8){error.textContent='Şifre en az 8 karakter olmalı.';password.focus();return}
+  const userName=name.value.trim();
+  if(mode==='signup'){
+   if(!userName){error.textContent='Adını veya kullanıcı adını gir.';name.focus();return}
+   if(passwordConfirm.value!==pw){error.textContent='Şifreler birbiriyle eşleşmiyor.';passwordConfirm.focus();return}
+  }
+  busy=true;submit.disabled=true;submit.textContent=mode==='signup'?'HESAP OLUŞTURULUYOR…':'GİRİŞ YAPILIYOR…';error.textContent='';
+  try{
+   if(mode==='login'){
+    await window.DengeCloud.signIn(mail,pw,remember.checked);
+    window.__dengeCloudAuthDismissed=false;
+    close();updateCloudPanel();toast('Denge Cloud hesabına giriş yapıldı.');
+   }else{
+    const result=await window.DengeCloud.signUp(mail,pw,userName,true);
+    if(result.confirmationRequired){
+     form.hidden=true;
+     switchLine.hidden=true;
+     title.textContent='E-postanı doğrula';
+     intro.textContent='Hesabın oluşturuldu. Devam etmek için e-posta adresini doğrula.';
+     success.hidden=false;
+     success.innerHTML='Doğrulama bağlantısını <b>'+esc(mail)+'</b> adresine gönderdik. E-postanı onayladıktan sonra giriş yapabilirsin.<button type="button" id="cloudBackToLogin">Giriş ekranına dön</button>';
+     success.querySelector('#cloudBackToLogin').onclick=()=>{switchLine.hidden=false;email.value=mail;password.value='';passwordConfirm.value='';setMode('login')};
+    }else{
+     window.__dengeCloudAuthDismissed=false;
+     close();updateCloudPanel();toast('Denge Cloud hesabı oluşturuldu.');
+    }
+   }
+  }catch(e){error.textContent=e.message||'İşlem tamamlanamadı.'}
+  finally{busy=false;if(overlay.isConnected&&!form.hidden){submit.disabled=false;submit.textContent=mode==='signup'?'HESAP OLUŞTUR':'GİRİŞ YAP'}}
+ });
+ overlay.querySelector('#cloudForgot').onclick=async()=>{
+  const mail=email.value.trim();
+  if(!mail||!/^\\S+@\\S+\\.\\S+$/.test(mail)){error.textContent='Şifre sıfırlama bağlantısı için önce e-posta adresini gir.';email.focus();return}
+  const forgot=overlay.querySelector('#cloudForgot');forgot.disabled=true;error.textContent='Sıfırlama bağlantısı gönderiliyor…';
+  try{await window.DengeCloud.resetPassword(mail);error.className='cloud-auth-error success';error.textContent='Şifre sıfırlama bağlantısı e-posta adresine gönderildi.'}
+  catch(e){error.className='cloud-auth-error';error.textContent=e.message||'Şifre sıfırlama bağlantısı gönderilemedi.'}
+  finally{forgot.disabled=false}
+ };
+ setMode(mode);
+}
 function bindCloudUI(){const auth=document.getElementById('cloudAuthOpen'),sync=document.getElementById('cloudSyncNow'),out=document.getElementById('cloudSignOut');if(auth)auth.onclick=showCloudAuthModal;if(sync)sync.onclick=async()=>{sync.disabled=true;try{await window.DengeCloud.syncNow();toast('Denge verileri eşitlendi.')}catch(e){showAlertCard(e.message||'Eşitleme tamamlanamadı.','Denge Cloud','error')}finally{sync.disabled=false;updateCloudPanel()}};if(out)out.onclick=async()=>{try{await window.DengeCloud.signOut();updateCloudPanel();toast('Oturum kapatıldı. Cihazdaki veriler korundu.')}catch(e){showAlertCard(e.message||'Oturum kapatılamadı.','Denge Cloud','error')}}}
 function effectiveTheme(){const t=data.settings.theme||'Açık';if(t==='Sistem'){if(window.AndroidBridge&&typeof AndroidBridge.isSystemDark==='function')return AndroidBridge.isSystemDark()?'Koyu':'Açık';return window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'Koyu':'Açık'}return t==='Koyu'?'Koyu':'Açık'}
 function applyTheme(){const dark=effectiveTheme()==='Koyu';document.body.className=dark?'dark':'';const meta=document.querySelector('meta[name=theme-color]');if(meta)meta.content=dark?'#10111a':'#f5f3ff';if(window.AndroidBridge&&AndroidBridge.setTheme)AndroidBridge.setTheme(dark?'dark':'light')}
@@ -1149,10 +1297,10 @@ function showCurrency(){const options=['TRY','USD','EUR','GBP'];const labels={TR
 
 render();
 window.__dengeCloudStateChanged=(state)=>updateCloudPanel(state);
+window.__dengeCloudAuthDismissed=false;
 window.__dengeMaybeShowCloudAuth=()=>{
  const s=window.DengeCloud&&window.DengeCloud.getStatus?window.DengeCloud.getStatus():null;
- let offlineDismissed=false;try{offlineDismissed=localStorage.getItem('denge-cloud-offline-continue-v1')==='1'}catch(_){}
- if(s&&s.configured&&!s.userId&&!offlineDismissed&&!document.getElementById('cloudAuthModal')&&!document.getElementById('pinLockModal'))showCloudAuthModal();
+ if(s&&s.configured&&!s.userId&&!window.__dengeCloudAuthDismissed&&!document.getElementById('cloudAuthModal')&&!document.getElementById('pinLockModal'))showCloudAuthModal('login');
 };
 if(window.DengeCloud&&typeof window.DengeCloud.init==='function'){
  window.DengeCloud.init().then(()=>setTimeout(window.__dengeMaybeShowCloudAuth,250)).catch(e=>{console.warn('Denge Cloud başlatılamadı:',e);setTimeout(window.__dengeMaybeShowCloudAuth,250)});
