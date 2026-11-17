@@ -1380,7 +1380,7 @@ window.__dengeMaybeShowCloudAuth=()=>{
 if(window.DengeCloud&&typeof window.DengeCloud.init==='function'){
  window.DengeCloud.init().then(()=>setTimeout(window.__dengeMaybeShowCloudAuth,250)).catch(e=>{console.warn('Denge Cloud başlatılamadı:',e);setTimeout(window.__dengeMaybeShowCloudAuth,250)});
 }
-if(!window.AndroidBridge&&'serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('./service-worker.js').catch(e=>console.warn('Çevrimdışı önbellek başlatılamadı:',e));}
+if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('./service-worker.js').catch(e=>console.warn('Çevrimdışı önbellek başlatılamadı:',e));}
 if(data.settings.security&&data.settings.pin){window.__pinBootDone=true;appLocked=true;setTimeout(()=>{window.__pinBootDone=false;showPinUnlock()},80)}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&data.settings.security){appLocked=true}if(document.visibilityState==='visible'&&data.settings.security&&appLocked){setTimeout(showPinUnlock,80)}});
 })();
