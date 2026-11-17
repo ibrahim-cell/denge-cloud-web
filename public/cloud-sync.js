@@ -171,6 +171,52 @@
     delete out.migration;
     return out;
   }
+
+  const TOMBSTONE_COLLECTIONS = ['transactions', 'debts', 'goals', 'recurring', 'accounts'];
+  function applyDeletionTombstones(source) {
+    const out = clone(source || {});
+    const map = out._denge_deleted && typeof out._denge_deleted === 'object' ? out._denge_deleted : {};
+    for (const collection of TOMBSTONE_COLLECTIONS) {
+      const deleted = map[collection] && typeof map[collection] === 'object' ? map[collection] : {};
+      if (Array.isArray(out[collection])) {
+        out[collection] = out[collection].filter(item =>
+          !item || item.id == null || !Object.prototype.hasOwnProperty.call(deleted, String(item.id))
+        );
+      }
+    }
+    out._denge_deleted = map;
+    return out;
+  }
+  function mergeDeletionMetadata(target, source) {
+    const out = clone(target || {});
+    const a = out._denge_deleted && typeof out._denge_deleted === 'object' ? out._denge_deleted : {};
+    const b = source && source._denge_deleted && typeof source._denge_deleted === 'object' ? source._denge_deleted : {};
+    const combined = {};
+    for (const collection of TOMBSTONE_COLLECTIONS) {
+      combined[collection] = Object.assign({}, a[collection] || {}, b[collection] || {});
+    }
+    out._denge_deleted = combined;
+    return applyDeletionTombstones(out);
+  }
+  function inferDeletedFromBase(base, remoteSource) {
+    const remote = mergeDeletionMetadata(cleanPayload(remoteSource || {}), base || {});
+    const deleted = remote._denge_deleted || {};
+    for (const collection of TOMBSTONE_COLLECTIONS) {
+      const baseItems = base && Array.isArray(base[collection]) ? base[collection] : [];
+      const remoteItems = Array.isArray(remote[collection]) ? remote[collection] : [];
+      const remoteIds = new Set(remoteItems.filter(item => item && item.id != null).map(item => String(item.id)));
+      const markers = Object.assign({}, deleted[collection] || {});
+      for (const item of baseItems) {
+        if (item && item.id != null && !remoteIds.has(String(item.id)) && !Object.prototype.hasOwnProperty.call(markers, String(item.id))) {
+          markers[String(item.id)] = new Date().toISOString();
+        }
+      }
+      deleted[collection] = markers;
+    }
+    remote._denge_deleted = deleted;
+    return applyDeletionTombstones(remote);
+  }
+
   function hasMeaningfulLocal(d) {
     if (!d) return false;
     if ((d.transactions || []).length || (d.debts || []).length || (d.goals || []).length || (d.recurring || []).length) return true;
@@ -434,9 +480,12 @@
           const local = currentLocal();
           const result = await rpcSave(local);
           if (result && (result.status === 'saved' || result.status === 'inserted')) {
-            saveBase(uid, Number(result.revision || 0), result.payload || local);
-            const newest = currentLocal();
-            if (same(newest, local)) {
+            const serverPayload = cleanPayload(result.payload || local);
+            saveBase(uid, Number(result.revision || 0), serverPayload);
+            const latestRaw = currentLocal();
+            const newest = mergeDeletionMetadata(latestRaw, serverPayload);
+            if (!same(latestRaw, newest)) applyLocal(newest, true);
+            if (same(newest, serverPayload)) {
               clearPending(uid);
               status.lastSyncAt = new Date().toISOString();
               saveUserLocal(uid);
@@ -448,10 +497,10 @@
             continue;
           }
           if (result && result.status === 'conflict') {
-            const remote = result.payload || {};
+            const remote = inferDeletedFromBase(baseSnapshot || {}, result.payload || {});
             const latestLocal = currentLocal();
             const previousBase = baseSnapshot || {};
-            const merged = mergeValue(previousBase, latestLocal, remote);
+            const merged = mergeDeletionMetadata(mergeValue(previousBase, latestLocal, remote), remote);
             saveBase(uid, Number(result.revision || 0), remote);
             applyLocal(merged, true);
             storePending(uid, merged);
@@ -494,12 +543,14 @@
         await pushLatest();
         return;
       }
-      const remote = cleanPayload(row.payload || {});
+      const remote = inferDeletedFromBase(baseSnapshot || {}, row.payload || {});
       const hasBase = baseSnapshot && baseRevision > 0;
+      const localWithMarkers = mergeDeletionMetadata(local, remote);
       let merged;
-      if (hasBase) merged = mergeValue(baseSnapshot, local, remote);
-      else if (hasMeaningfulLocal(local)) merged = mergeValue({}, local, remote);
+      if (hasBase) merged = mergeValue(baseSnapshot, localWithMarkers, remote);
+      else if (hasMeaningfulLocal(localWithMarkers)) merged = mergeValue({}, localWithMarkers, remote);
       else merged = clone(remote);
+      merged = mergeDeletionMetadata(merged, remote);
       saveBase(uid, Number(row.revision || 0), remote);
       applyLocal(merged, true);
       saveUserLocal(uid);
@@ -522,8 +573,9 @@
       if (!row || Number(row.revision || 0) <= baseRevision) return;
       const uid = session.user.id;
       const local = currentLocal();
-      const remote = cleanPayload(row.payload || {});
-      const merged = mergeValue(baseSnapshot || {}, local, remote);
+      const remote = inferDeletedFromBase(baseSnapshot || {}, row.payload || {});
+      const localWithMarkers = mergeDeletionMetadata(local, remote);
+      const merged = mergeDeletionMetadata(mergeValue(baseSnapshot || {}, localWithMarkers, remote), remote);
       saveBase(uid, Number(row.revision || 0), remote);
       applyLocal(merged, true);
       saveUserLocal(uid);

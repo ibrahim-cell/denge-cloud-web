@@ -1357,6 +1357,7 @@ function showClearDataConfirm(){
    accounts:[{id:1,name:'Nakit',balance:0,openingBalance:0},{id:2,name:'Banka',balance:0,openingBalance:0},{id:3,name:'Kredi Kartı',balance:0,openingBalance:0}],
    categories:{income:['Maaş','Ek Gelir','Yatırım','Freelance','Diğer'],expense:['Market','Fatura','Ulaşım','Yemek','Alışveriş','Eğlence','Sağlık','Diğer']},
    budgets:{},debts:[],goals:[],recurring:[],categoryIcons:{},
+   _denge_deleted:previous._denge_deleted||{},
    settings:{theme:previous.theme||'Açık',notifications:previous.notifications!==false,currency:previous.currency||'TRY',security:false,pin:'',profileName:previous.profileName||'',profilePhoto:previous.profilePhoto||'',language:previous.language||'tr'}
   };
   save();modal.remove();page='home';render();
