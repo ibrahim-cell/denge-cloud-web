@@ -660,6 +660,7 @@
   async function syncNow() {
     if (!session || !session.user) throw new Error(text('loginRequired'));
     if (!navigator.onLine) throw new Error(text('offlineLogin'));
+    if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
     await pushLatest();
     const uid = session.user.id;
     const queued = readJson(pendingKey(uid), null);
