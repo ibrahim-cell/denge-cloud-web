@@ -1,21 +1,20 @@
 # Denge Cloud Web
 
-This repository hosts the responsive Denge Cloud web/PWA app.
+Responsive personal-finance PWA for Android and desktop browsers.
 
-## Upload the release package
+## Source layout
 
-1. Download `Denge-Cloud-Web-1.1.1-Vercel-Ready.zip` from the ChatGPT conversation.
-2. In this repository choose **Add file → Upload files**.
-3. Upload that single ZIP file to the repository root (do not extract it and do not create folders).
-4. Commit the upload to `main`.
-
-GitHub Actions will unpack it automatically and commit the app files, including `assets/brand/`, into the repository root. When the workflow finishes, `index.html` will be at the root, ready for Vercel import.
+- `index.html` is the application entry point.
+- `assets/brand/` contains the Denge logo and app icons.
+- `cloud-config.js` contains the public Supabase project URL and publishable key.
+- `cloud-sync.js` contains client-side authentication and synchronization logic.
+- `public/` mirrors the static deployable site files for Vercel.
 
 ## Vercel
 
-- Framework preset: Other
+- Framework preset: **Other**
 - Root directory: `./`
 - Build command: leave empty
-- Output directory: leave empty
+- Output directory: `public` (also defined in `vercel.json`)
 
-The Supabase browser configuration contains only the project's public publishable key. Never add a service-role or secret key to this repository.
+Only the Supabase publishable key belongs in browser code. Never add a service-role or secret key to this repository.
