@@ -17,6 +17,93 @@
   const PENDING_PREFIX = 'denge-cloud-pending-v1:';
   const configured = /^https:\/\//i.test(URL) && KEY.length > 10;
 
+  const LANG = {
+    tr: {
+      notConfigured:'Supabase bağlantı ayarı bekleniyor.',
+      signedOut:'Bulut hesabına giriş yapılmadı.',
+      sending:'Değişiklikler buluta gönderiliyor…',
+      synced:'Tüm veriler eşitlendi.',
+      queued:'Değişiklikler sırada; eşitleme yeniden denenecek.',
+      pending:'Kaydedildi; buluta gönderilmek üzere sırada.',
+      checking:'Bulut hesabındaki veriler kontrol ediliyor…',
+      loaded:'Bulut verileri yüklendi ve eşitlendi.',
+      remote:'Diğer cihazdaki değişiklikler alındı.',
+      offline:'Çevrimdışısın. Veriler cihazda güvenle saklanıyor.',
+      offlinePending:'Çevrimdışısın. Kayıt cihazda saklandı; bağlantı gelince eşitlenecek.',
+      connectionBack:'Bağlantı geri geldi; eşitleme başlıyor.',
+      onlineReady:'İnternet bağlantısı hazır.',
+      confirmation:'Doğrulama e-postası gönderildiyse önce e-postanı onayla, ardından giriş yap.',
+      signedOutLocal:'Oturum kapatıldı. Bu cihazdaki verilerin korundu.',
+      loginRequired:'Önce Denge Cloud hesabına giriş yap.',
+      offlineLogin:'Şu anda çevrimdışısın. Bağlantı gelince otomatik eşitlenecek.',
+      storageFull:'Cihaz depolama alanı dolu olabilir. Yedek alıp alan açın.',
+      syncFailed:'Bulut eşitlemesi tamamlanamadı.',
+      genericError:'Eşitleme sırasında bir hata oluştu. Lütfen bağlantınızı kontrol edip yeniden deneyin.',
+      invalidApiKey:'Supabase API anahtarı geçersiz. Uygulama bağlantı ayarını kontrol edin.',
+      invalidLogin:'E-posta veya şifre hatalı.',
+      emailUnconfirmed:'E-posta adresinizi doğrulamanız gerekiyor.',
+      emailExists:'Bu e-posta adresiyle kayıtlı bir hesap zaten var.',
+      permissionDenied:'Bulut verilerine erişim izni yok. Veritabanı güvenlik ayarlarını kontrol edin.',
+      timeout:'Sunucu yanıt vermedi. Lütfen yeniden deneyin.',
+      sessionExpired:'Oturum süresi doldu. Lütfen yeniden giriş yapın.'
+    },
+    en: {
+      notConfigured:'Supabase connection is not configured.',
+      signedOut:'You are not signed in to Denge Cloud.',
+      sending:'Uploading changes to the cloud…',
+      synced:'All data is synchronized.',
+      queued:'Changes are queued and will be retried.',
+      pending:'Saved locally and queued for cloud sync.',
+      checking:'Checking your cloud account data…',
+      loaded:'Cloud data loaded and synchronized.',
+      remote:'Changes from another device were received.',
+      offline:'You are offline. Your data is safely stored on this device.',
+      offlinePending:'You are offline. This change is saved locally and will sync when connected.',
+      connectionBack:'Connection restored; synchronization is starting.',
+      onlineReady:'Internet connection is available.',
+      confirmation:'If a confirmation email was sent, verify your email address before signing in.',
+      signedOutLocal:'Signed out. Data on this device has been preserved.',
+      loginRequired:'Sign in to your Denge Cloud account first.',
+      offlineLogin:'You are offline. Automatic sync will resume when connected.',
+      storageFull:'Device storage may be full. Back up your data and free some space.',
+      syncFailed:'Cloud synchronization could not be completed.',
+      genericError:'An error occurred during synchronization. Check your connection and try again.',
+      invalidApiKey:'The Supabase API key is invalid. Check the app connection settings.',
+      invalidLogin:'The email address or password is incorrect.',
+      emailUnconfirmed:'Please confirm your email address.',
+      emailExists:'An account with this email address already exists.',
+      permissionDenied:'Access to cloud data was denied. Check the database security settings.',
+      timeout:'The server did not respond. Please try again.',
+      sessionExpired:'Your session has expired. Please sign in again.'
+    }
+  };
+  function currentLanguage() {
+    try {
+      const bridge=getBridge();
+      const appData=bridge&&typeof bridge.getData==='function'?bridge.getData():null;
+      if(appData&&appData.settings&&appData.settings.syncLanguage==='en')return 'en';
+      const raw=localStorage.getItem('denge-v3');
+      if(raw){const parsed=JSON.parse(raw);if(parsed.settings&&parsed.settings.syncLanguage==='en')return 'en';}
+    } catch (_) {}
+    return 'tr';
+  }
+  function text(key) { const lang=currentLanguage(); return (LANG[lang]||LANG.tr)[key]||LANG.tr[key]||key; }
+  function localizeError(error) {
+    const raw=String(error&&error.message?error.message:error||'');
+    const normalized=raw.toLowerCase();
+    let key='genericError';
+    if(/invalid api.?key|no api key found|api key is invalid/.test(normalized))key='invalidApiKey';
+    else if(/invalid login credentials|invalid credentials/.test(normalized))key='invalidLogin';
+    else if(/email not confirmed|email unconfirmed/.test(normalized))key='emailUnconfirmed';
+    else if(/user already registered|already registered|email already exists/.test(normalized))key='emailExists';
+    else if(/permission denied|row.level security|violates row-level security|not allowed to access/.test(normalized))key='permissionDenied';
+    else if(/timeout|timed out|aborterror/.test(normalized))key='timeout';
+    else if(/jwt expired|token has expired|invalid jwt|refresh token/.test(normalized))key='sessionExpired';
+    else if(/failed to fetch|networkerror|load failed|fetch failed|network request failed|connection refused/.test(normalized))key='genericError';
+    if(currentLanguage()==='en'&&key==='genericError'&&raw)return raw;
+    return text(key);
+  }
+
   let session = readJson(AUTH_KEY, null);
   if (!session) { try { const rawSession = sessionStorage.getItem(TAB_AUTH_KEY); session = rawSession ? JSON.parse(rawSession) : null; } catch (_) { session = null; } }
   let rememberSession = readJson(REMEMBER_KEY, true) !== false;
@@ -34,7 +121,7 @@
     userEmail: session && session.user ? session.user.email || '' : '',
     userId: currentUserId,
     state: configured ? (navigator.onLine ? 'signedOut' : 'offline') : 'notConfigured',
-    message: configured ? 'Bulut hesabına giriş yapılmadı.' : 'Supabase bağlantı ayarı bekleniyor.',
+    message: configured ? text('signedOut') : text('notConfigured'),
     lastSyncAt: '',
     pending: false,
     online: navigator.onLine
@@ -46,7 +133,7 @@
   }
   function writeJson(key, value) {
     try { localStorage.setItem(key, JSON.stringify(value)); return true; }
-    catch (error) { setStatus('error', 'Cihaz depolama alanı dolu olabilir. Yedek alıp alan açın.'); return false; }
+    catch (error) { setStatus('error', text('storageFull')); return false; }
   }
   function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
   function same(a, b) {
@@ -331,7 +418,7 @@
     syncing = true;
     const uid = session.user.id;
     try {
-      setStatus('syncing', 'Değişiklikler buluta gönderiliyor…');
+      setStatus('syncing', text('sending'));
       let attempts = 0;
       while (attempts < 4) {
         attempts++;
@@ -344,7 +431,7 @@
             clearPending(uid);
             status.lastSyncAt = new Date().toISOString();
             saveUserLocal(uid);
-            setStatus('synced', 'Tüm veriler eşitlendi.');
+            setStatus('synced', text('synced'));
             startPolling();
             return;
           }
@@ -359,9 +446,9 @@
           storePending(uid, merged);
           continue;
         }
-        throw new Error((result && result.message) || 'Bulut eşitlemesi tamamlanamadı.');
+        throw new Error(result && result.message ? localizeError(result.message) : text('syncFailed'));
       }
-      setStatus('queued', 'Değişiklikler sırada; eşitleme yeniden denenecek.');
+      setStatus('queued', text('queued'));
       setTimeout(() => schedulePush(), 2500);
     } finally {
       syncing = false;
@@ -370,18 +457,18 @@
   function handleSyncError(error) {
     status.pending = !!(session && session.user);
     setStatus(navigator.onLine ? 'queued' : 'offline', navigator.onLine
-      ? ('Eşitleme beklemede: ' + (error && error.message ? error.message : 'Bağlantı hatası'))
-      : 'Çevrimdışısın. Kayıtlar cihazda saklandı; bağlantı gelince eşitlenecek.');
+      ? (currentLanguage()==='en' ? 'Sync pending: '+localizeError(error) : 'Eşitleme beklemede: '+localizeError(error))
+      : text('offlinePending'));
   }
   async function bootstrapAccount() {
     if (!session || !session.user || !navigator.onLine) {
-      setStatus('offline', 'Çevrimdışısın. Kayıtlar cihazda saklanıyor.');
+      setStatus('offline', text('offline'));
       return;
     }
     const uid = session.user.id;
     switchLocalUser(uid);
     loadBase(uid);
-    setStatus('syncing', 'Bulut hesabındaki veriler kontrol ediliyor…');
+    setStatus('syncing', text('checking'));
     try {
       const row = await fetchRemoteRow();
       const local = currentLocal();
@@ -407,7 +494,7 @@
       } else {
         clearPending(uid);
         status.lastSyncAt = row.updated_at || new Date().toISOString();
-        setStatus('synced', 'Bulut verileri yüklendi ve eşitlendi.');
+        setStatus('synced', text('loaded'));
         startPolling();
       }
     } catch (error) { handleSyncError(error); }
@@ -431,7 +518,7 @@
       } else {
         clearPending(uid);
         status.lastSyncAt = row.updated_at || new Date().toISOString();
-        setStatus('synced', 'Diğer cihazdaki değişiklikler alındı.');
+        setStatus('synced', text('remote'));
       }
     } catch (error) { handleSyncError(error); }
   }
@@ -470,7 +557,7 @@
       await activateSession(result);
       return { confirmationRequired: false, status: getStatus() };
     }
-    setStatus('confirmation', 'Doğrulama e-postası gönderildiyse önce e-postanı onayla, ardından giriş yap.');
+    setStatus('confirmation', text('confirmation'));
     return { confirmationRequired: true, status: getStatus() };
   }
   async function resetPassword(email) {
@@ -497,11 +584,11 @@
     try { localStorage.removeItem(ACTIVE_USER_KEY); } catch (_) {}
     if (pollTimer) clearInterval(pollTimer);
     if (pushTimer) clearTimeout(pushTimer);
-    setStatus('signedOut', 'Oturum kapatıldı. Bu cihazdaki verilerin korundu.');
+    setStatus('signedOut', text('signedOutLocal'));
   }
   async function syncNow() {
-    if (!session || !session.user) throw new Error('Önce Denge Cloud hesabına giriş yap.');
-    if (!navigator.onLine) throw new Error('Şu anda çevrimdışısın. Bağlantı gelince otomatik eşitlenecek.');
+    if (!session || !session.user) throw new Error(text('loginRequired'));
+    if (!navigator.onLine) throw new Error(text('offlineLogin'));
     await pushLatest();
     await pollRemote();
     return getStatus();
@@ -512,15 +599,15 @@
     const payload = cleanPayload(data);
     storePending(uid, payload);
     setStatus(navigator.onLine ? 'queued' : 'offline', navigator.onLine
-      ? 'Kaydedildi; buluta gönderilmek üzere sırada.'
-      : 'Çevrimdışısın. Kayıt cihazda; bağlantı gelince eşitlenecek.');
+      ? text('pending')
+      : text('offlinePending'));
     schedulePush();
   }
   async function init() {
     if (initialized) return;
     initialized = true;
-    if (!configured) { setStatus('notConfigured', 'Supabase ayarları girildiğinde e-posta hesabı ve bulut eşitlemesi açılacak.'); return; }
-    if (!session) { setStatus(navigator.onLine ? 'signedOut' : 'offline', 'E-posta ve şifre ile giriş yaparak cihazlarını eşitle.'); return; }
+    if (!configured) { setStatus('notConfigured', text('notConfigured')); return; }
+    if (!session) { setStatus(navigator.onLine ? 'signedOut' : 'offline', navigator.onLine ? text('signedOut') : text('offline')); return; }
     try {
       await refreshSession();
       await bootstrapAccount();
@@ -528,19 +615,19 @@
     } catch (error) {
       if (error && (error.status === 400 || error.status === 401)) {
         persistSession(null);
-        setStatus('signedOut', 'Oturum süresi doldu. Tekrar giriş yap.');
+        setStatus('signedOut', text('sessionExpired'));
       } else handleSyncError(error);
     }
   }
 
   window.addEventListener('online', function () {
     status.online = true;
-    if (session && session.user) { setStatus('syncing', 'Bağlantı geri geldi; eşitleme başlıyor.'); schedulePush(); pollRemote(); }
-    else setStatus('signedOut', 'İnternet bağlantısı hazır.');
+    if (session && session.user) { setStatus('syncing', text('connectionBack')); schedulePush(); pollRemote(); }
+    else setStatus('signedOut', text('onlineReady'));
   });
   window.addEventListener('offline', function () {
     status.online = false;
-    setStatus('offline', 'Çevrimdışısın. Veriler cihazda güvenle saklanıyor.');
+    setStatus('offline', text('offline'));
   });
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible' && session && session.user && navigator.onLine) pollRemote();
@@ -555,6 +642,8 @@
     syncNow,
     localSave,
     getStatus,
+    getLocalizedError: localizeError,
+    refreshLanguage: () => { const state=status.state; const keys={notConfigured:'notConfigured',signedOut:'signedOut',offline:'offline',syncing:'checking',synced:'synced',queued:'queued',confirmation:'confirmation',error:'genericError'}; setStatus(state,text(keys[state]||'checking')); },
     isConfigured: () => configured
   };
 })();
