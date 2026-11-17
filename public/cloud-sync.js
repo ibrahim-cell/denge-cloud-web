@@ -7,7 +7,7 @@
 
   const cfg = window.DENGE_CLOUD_CONFIG || {};
   const URL = String(cfg.url || '').replace(/\/$/, '');
-  const KEY = String(cfg.publishableKey || '');
+  const KEY = String(cfg.apiKey || cfg.publishableKey || '');
   const AUTH_KEY = 'denge-cloud-session-v1';
   const TAB_AUTH_KEY = 'denge-cloud-session-tab-v1';
   const REMEMBER_KEY = 'denge-cloud-remember-v1';
