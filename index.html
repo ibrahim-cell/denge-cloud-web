@@ -1076,11 +1076,11 @@ function showCloudAuthModal(initialMode='login'){
  overlay.className='settings-modal cloud-auth-overlay';
  overlay.innerHTML=`
   <section class="cloud-modal-card cloud-auth-card" role="dialog" aria-modal="true" aria-labelledby="cloudAuthTitle">
-   <button type="button" class="cloud-auth-close" id="cloudAuthClose" aria-label="Kapat"'+(mandatoryAuth?' hidden':'')+'>×</button>
+   <button type="button" class="cloud-auth-close" id="cloudAuthClose" aria-label="Kapat" ${mandatoryAuth?'hidden':''}>×</button>
    <div class="cloud-auth-emblem"><img src="./assets/brand/denge-lotus-192.png" alt="Denge"><span class="cloud-auth-lock"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span></div>
    <div class="cloud-auth-brand">DENGE CLOUD</div>
-   <h2 id="cloudAuthTitle">Tekrar hoş geldin</h2>
-   <p class="cloud-auth-intro" id="cloudAuthIntro">'+(mandatoryAuth?'Oturum kapatıldı. Finansal verilerine devam etmek için yeniden giriş yap.':'Telefonunda ve bilgisayarında aynı finans hesabını kullan.')+'</p>
+   <h2 id="cloudAuthTitle">${mandatoryAuth?'Yeniden giriş yap':'Tekrar hoş geldin'}</h2>
+   <p class="cloud-auth-intro" id="cloudAuthIntro">${mandatoryAuth?'Oturum kapatıldı. Finansal verilerine devam etmek için yeniden giriş yap.':'Telefonunda ve bilgisayarında aynı finans hesabını kullan.'}</p>
    <form class="cloud-auth-form" id="cloudAuthForm" novalidate>
     <div class="cloud-field" id="cloudNameWrap" hidden><label for="cloudName">Adın / kullanıcı adın</label><input id="cloudName" type="text" autocomplete="name" placeholder="Adını yaz"></div>
     <div class="cloud-field"><label for="cloudEmail">E-posta adresi</label><input id="cloudEmail" type="email" autocomplete="email" placeholder="ornek@eposta.com" required></div>
@@ -1092,7 +1092,7 @@ function showCloudAuthModal(initialMode='login'){
    </form>
    <div class="cloud-auth-success" id="cloudAuthSuccess" hidden></div>
    <div class="cloud-auth-switch" id="cloudModeSwitch"></div>
-   <button type="button" class="cloud-auth-offline" id="cloudAuthOffline"'+(mandatoryAuth?' hidden':'')+'>Şimdilik çevrimdışı devam et</button>
+   <button type="button" class="cloud-auth-offline" id="cloudAuthOffline" ${mandatoryAuth?'hidden':''}>Şimdilik çevrimdışı devam et</button>
   </section>`;
  document.body.appendChild(overlay);
  let mode=initialMode==='signup'?'signup':'login';
