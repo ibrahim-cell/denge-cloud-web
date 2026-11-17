@@ -539,6 +539,7 @@
     writeJson(REMEMBER_KEY, rememberSession);
     const result = await authRequest('token?grant_type=password', { email: String(email).trim(), password: String(password) });
     await activateSession(result);
+    try { localStorage.removeItem('denge-cloud-logout-lock-v1'); } catch (_) {}
     return getStatus();
   }
   async function signUp(email, password, username, remember) {
@@ -555,6 +556,7 @@
     });
     if (result && result.access_token && result.user) {
       await activateSession(result);
+      try { localStorage.removeItem('denge-cloud-logout-lock-v1'); } catch (_) {}
       return { confirmationRequired: false, status: getStatus() };
     }
     setStatus('confirmation', text('confirmation'));
@@ -582,6 +584,8 @@
     } catch (_) { /* Local sign-out must still work when the network is unavailable. */ }
     persistSession(null);
     try { localStorage.removeItem(ACTIVE_USER_KEY); } catch (_) {}
+    // Explicit sign-out stays locked across reloads until authenticated again.
+    try { localStorage.setItem('denge-cloud-logout-lock-v1', '1'); } catch (_) {}
     if (pollTimer) clearInterval(pollTimer);
     if (pushTimer) clearTimeout(pushTimer);
     setStatus('signedOut', text('signedOutLocal'));
