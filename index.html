@@ -971,11 +971,10 @@ function openDateCalendar(inputEl,labelEl){
     if(button.id==='calCancel'){close();return;}
     if(button.id==='calOk'){apply();return;}
   };
-  modal.addEventListener('pointerup',handleAction);
   modal.addEventListener('click',e=>{
     e.preventDefault();
     e.stopPropagation();
-    if(e.detail===0)handleAction(e);
+    handleAction(e);
   });
   modal.addEventListener('contextmenu',e=>e.preventDefault());
 }
