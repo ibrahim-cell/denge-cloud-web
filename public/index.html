@@ -973,6 +973,8 @@ function openDateCalendar(inputEl,labelEl){
   };
   modal.addEventListener('pointerup',handleAction);
   modal.addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
     if(e.detail===0)handleAction(e);
   });
   modal.addEventListener('contextmenu',e=>e.preventDefault());
