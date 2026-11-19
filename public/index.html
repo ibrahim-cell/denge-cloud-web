@@ -630,7 +630,7 @@ function transactions(){
  return top+search+'<div class="seg"><button class="'+(filter==='all'?'on':'')+'" data-filter="all">Tümü</button><button class="'+(filter==='income'?'on':'')+'" data-filter="income">Gelir</button><button class="'+(filter==='expense'?'on':'')+'" data-filter="expense">Gider</button><button class="'+(filter==='transfer'?'on':'')+'" data-filter="transfer">Transfer</button><button class="'+(filter==='debt'?'on':'')+'" data-filter="debt">Borç</button></div>'+body;
 }
 function add(){
- const initialType=window.homeAddType||'expense'; const today=new Date().toISOString().slice(0,10); const catList=initialType==='income'?data.categories.income:data.categories.expense; const active=x=>initialType===x?'active':'';
+ const initialType=window.homeAddType||'expense'; const today=localDateISO(); const catList=initialType==='income'?data.categories.income:data.categories.expense; const active=x=>initialType===x?'active':'';
  return '<div class="add-page"><div class="add-header"><button class="add-back" data-nav="home" aria-label="Geri">‹</button><h1>İşlem Ekle</h1><span></span></div>'
  +'<div class="type-switch four-types"><button type="button" id="incomeBtn" class="type-btn income-type '+active('income')+'"><span class="type-svg">'+sicon('income')+'</span><b>Gelir</b></button><button type="button" id="expenseBtn" class="type-btn expense-type '+active('expense')+'"><span class="type-svg">'+sicon('expense')+'</span><b>Gider</b></button><button type="button" id="transferBtn" class="type-btn transfer-type '+active('transfer')+'"><span class="type-svg">'+sicon('transfer')+'</span><b>Transfer</b></button><button type="button" id="debtBtn" class="type-btn debt-type '+active('debt')+'"><span class="type-svg">'+sicon('debt')+'</span><b>Borç / Alacak</b></button></div>'
  +'<div class="add-form" id="addForm"><div id="normalFields"><label>Tutar</label><div class="amount-field"><span>₺</span><input id="amount" inputmode="decimal" placeholder="0"></div><label>Kategori</label><div class="select-wrap picker-wrap"><span class="field-icon">'+sicon('category')+'</span><select id="category" class="field picker-hidden">'+catList.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select><button type="button" id="categoryPicker" class="picker-trigger field"><span class="picker-value">'+esc(catList[0]||'Kategori seç')+'</span><span class="chevron">›</span></button></div><label>Hesap</label><div class="select-wrap picker-wrap"><span class="field-icon">'+sicon('account')+'</span><select id="account" class="field picker-hidden">'+data.accounts.map(x=>'<option>'+esc(x.name)+'</option>').join('')+'</select><button type="button" id="accountPicker" class="picker-trigger field"><span class="picker-value">'+esc(data.accounts[0]?.name||'Hesap seç')+'</span><span class="chevron">›</span></button></div></div>'
@@ -836,6 +836,12 @@ function openAddCategoryModal(type){
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   setTimeout(()=>{const inp=document.getElementById('newCatName');if(inp)inp.focus();},50);
 }
+function localDateISO(date=new Date()){
+  const y=date.getFullYear();
+  const m=String(date.getMonth()+1).padStart(2,'0');
+  const d=String(date.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+d;
+}
 function formatDateTR(iso){
   if(!iso) return '';
   const d=new Date(iso+'T00:00:00');
@@ -845,7 +851,7 @@ function formatDateTR(iso){
   return d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear()+' · '+days[d.getDay()];
 }
 function openDateCalendar(inputEl,labelEl){
-  const cur=inputEl.value||new Date().toISOString().slice(0,10);
+  const cur=inputEl.value||localDateISO();
   let view=new Date(cur+'T00:00:00');
   let selected=cur;
   const monthsTR=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
@@ -858,12 +864,12 @@ function openDateCalendar(inputEl,labelEl){
     const daysIn=new Date(y,m+1,0).getDate();
     const prevDays=new Date(y,m,0).getDate();
     let cells='';
-    const todayIso=new Date().toISOString().slice(0,10);
+    const todayIso=localDateISO();
     for(let i=0;i<42;i++){
       let day,cls='cal-day',iso;
-      if(i<start){day=prevDays-start+i+1;cls+=' muted';iso=new Date(y,m-1,day).toISOString().slice(0,10);}
-      else if(i>=start+daysIn){day=i-start-daysIn+1;cls+=' muted';iso=new Date(y,m+1,day).toISOString().slice(0,10);}
-      else{day=i-start+1;iso=new Date(y,m,day).toISOString().slice(0,10);if(iso===selected)cls+=' selected';if(iso===todayIso)cls+=' today';}
+      if(i<start){day=prevDays-start+i+1;cls+=' muted';iso=localDateISO(new Date(y,m-1,day));}
+      else if(i>=start+daysIn){day=i-start-daysIn+1;cls+=' muted';iso=localDateISO(new Date(y,m+1,day));}
+      else{day=i-start+1;iso=localDateISO(new Date(y,m,day));if(iso===selected)cls+=' selected';if(iso===todayIso)cls+=' today';}
       cells+='<button type="button" class="'+cls+'" data-iso="'+iso+'">'+day+'</button>';
     }
     const headDate=new Date(selected+'T00:00:00');
@@ -877,7 +883,7 @@ function openDateCalendar(inputEl,labelEl){
     modal.querySelectorAll('.cal-day').forEach(b=>b.onclick=()=>{selected=b.dataset.iso;mount();});
     document.getElementById('calPrev').onclick=()=>{view=new Date(view.getFullYear(),view.getMonth()-1,1);mount();};
     document.getElementById('calNext').onclick=()=>{view=new Date(view.getFullYear(),view.getMonth()+1,1);mount();};
-    document.getElementById('calClear').onclick=()=>{const t=new Date().toISOString().slice(0,10);inputEl.value=t;if(labelEl)labelEl.textContent=formatDateTR(t);modal.remove();};
+    document.getElementById('calClear').onclick=()=>{const t=localDateISO();inputEl.value=t;if(labelEl)labelEl.textContent=formatDateTR(t);modal.remove();};
     document.getElementById('calCancel').onclick=()=>modal.remove();
     document.getElementById('calOk').onclick=()=>{inputEl.value=selected;if(labelEl)labelEl.textContent=formatDateTR(selected);modal.remove();};
     modal.onclick=e=>{if(e.target===modal)modal.remove();};
@@ -1284,7 +1290,7 @@ function showTransactionDelete(id){
 function showEditTransaction(id){
  const t=findTx(id);if(!t)return;
  const type=t.amount>=0?'income':'expense'; const cats=data.categories[type]||[];
- const html='<div class="tx-detail-modal" id="txEditModal"><div class="tx-modal-card"><div class="tx-modal-head"><span class="tx-modal-icon">'+sicon('edit')+'</span><div><h3>İşlemi düzenle</h3><p>Bilgilerini güncelle.</p></div><button class="tx-close" id="txEditClose">×</button></div><div class="tx-edit-form"><label>Tutar</label><input id="editAmount" class="edit-field" inputmode="decimal" value="'+esc(String(Math.abs(Number(t.amount)||0)))+'"><label>Açıklama</label><input id="editName" class="edit-field" value="'+esc(t.name||'')+'"><label>Kategori</label><button type="button" id="editCategory" class="edit-field edit-picker-trigger"><span>'+esc(t.category||cats[0]||'Kategori seç')+'</span><span class="chev">›</span></button><label>Hesap</label><button type="button" id="editAccount" class="edit-field edit-picker-trigger"><span>'+esc(t.account||data.accounts[0]?.name||'Hesap seç')+'</span><span class="chev">›</span></button><label>Tarih</label><input id="editDate" class="edit-field" type="date" value="'+esc(t.date||new Date().toISOString().slice(0,10))+'"><div class="tx-edit-actions"><button class="tx-cancel" id="txEditCancel">Vazgeç</button><button class="tx-save" id="txEditSave">Kaydet</button></div></div></div></div>';
+ const html='<div class="tx-detail-modal" id="txEditModal"><div class="tx-modal-card"><div class="tx-modal-head"><span class="tx-modal-icon">'+sicon('edit')+'</span><div><h3>İşlemi düzenle</h3><p>Bilgilerini güncelle.</p></div><button class="tx-close" id="txEditClose">×</button></div><div class="tx-edit-form"><label>Tutar</label><input id="editAmount" class="edit-field" inputmode="decimal" value="'+esc(String(Math.abs(Number(t.amount)||0)))+'"><label>Açıklama</label><input id="editName" class="edit-field" value="'+esc(t.name||'')+'"><label>Kategori</label><button type="button" id="editCategory" class="edit-field edit-picker-trigger"><span>'+esc(t.category||cats[0]||'Kategori seç')+'</span><span class="chev">›</span></button><label>Hesap</label><button type="button" id="editAccount" class="edit-field edit-picker-trigger"><span>'+esc(t.account||data.accounts[0]?.name||'Hesap seç')+'</span><span class="chev">›</span></button><label>Tarih</label><input id="editDate" class="edit-field" type="date" value="'+esc(t.date||localDateISO())+'"><div class="tx-edit-actions"><button class="tx-cancel" id="txEditCancel">Vazgeç</button><button class="tx-save" id="txEditSave">Kaydet</button></div></div></div></div>';
  document.body.insertAdjacentHTML('beforeend',html);
  const m=document.getElementById('txEditModal'),catBtn=document.getElementById('editCategory'),accBtn=document.getElementById('editAccount');let category=t.category||cats[0]||'';let account=t.account||data.accounts[0]?.name||'';
  const picker=(kind)=>{

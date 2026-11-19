@@ -1,4 +1,4 @@
-const CACHE_NAME = 'denge-static-v1.1.14-quick-add-fab';
+const CACHE_NAME = 'denge-static-v1.1.15-local-date-fix';
 const CORE = ['./', './index.html', './cloud-config.js', './cloud-sync.js', './site.webmanifest', './assets/brand/denge-lotus-192.png', './assets/brand/denge-lotus-512.png', './assets/brand/favicon.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting()));
