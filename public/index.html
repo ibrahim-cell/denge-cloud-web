@@ -1035,7 +1035,7 @@ function profile(){
  +'<div class="profile-section-title">Hesabım</div><div class="profile-menu">'
  +'<div class="setting-group"><button class="setting" data-nav="accounts"><span class="setleft"><span class="seticon">'+sicon('card')+'</span><span><b>Hesaplarım</b></span></span><span class="setright">'+data.accounts.length+' hesap ›</span></button><button class="setting" data-nav="categories"><span class="setleft"><span class="seticon">'+sicon('tag')+'</span><span><b>Kategoriler</b></span></span><span class="setright">'+catCount+' kategori ›</span></button><button class="setting" data-nav="budget"><span class="setleft"><span class="seticon">'+sicon('chart')+'</span><span><b>Finansal hedef & bütçe</b></span></span><span class="setright">›</span></button></div>'
  +'</div><div class="profile-section-title">Uygulama</div><div class="profile-menu">'
- +'<div class="setting-group"><button class="setting" data-nav="settings"><span class="setleft"><span class="seticon">'+sicon('settings')+'</span><span><b>Görünüm, Güvenlik ve Yedekleme</b><small class="muted" style="display:block;font-size:10px;margin-top:3px">Tema, dil, bildirimler, PIN ve veri yedekleri</small></span></span><span class="setright">Ayarlar ›</span></button></div>'
+ +'<div class="setting-group"><button class="setting" data-nav="settings"><span class="setleft"><span class="seticon">'+sicon('moon')+'</span><span><b>Görünüm, Güvenlik ve Yedekleme</b><small class="muted" style="display:block;font-size:10px;margin-top:3px">Tema, dil, bildirimler, PIN ve veri yedekleri</small></span></span><span class="setright">Ayarlar ›</span></button></div>'
  +'<button class="profile-about-card" data-nav="about"><img class="profile-about-logo" src="./assets/brand/denge-lotus-192.png" alt="Denge"><div><b>Denge hakkında</b><span>Uygulama bilgisi ve proje kimliği</span></div><span class="chev">›</span></button>'
  +'</div><div style="height:8px"></div>';
 }
@@ -1429,12 +1429,6 @@ function showAddRecurring(existingRecord){
    save();m.remove();
    if(!editing){try{processRecurring()}catch(e){}}
    page='recurring';render();toast(editing?'Tekrarlayan işlem güncellendi.':'Tekrarlayan işlem eklendi.');
- };
- m.onclick=e=>{if(e.target===m)m.remove()};
-}unt,dayOfMonth,active:true});
-   save();m.remove();
-   try{processRecurring()}catch(e){}
-   page='recurring';render();toast('Tekrarlayan işlem eklendi.');
  };
  m.onclick=e=>{if(e.target===m)m.remove()};
 }
