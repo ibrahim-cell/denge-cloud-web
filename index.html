@@ -1394,7 +1394,9 @@ function showEditTransaction(id){
 }
 
 function showAddRecurring(existingRecord){
- const editing=!!existingRecord;
+ // Only a real recurring record with a stable ID opens edit mode; click events are not records.
+ const editing=!!(existingRecord&&typeof existingRecord==='object'&&existingRecord.id!==undefined&&existingRecord.id!==null);
+ existingRecord=editing?existingRecord:null;
  const accounts=(data.accounts||[]).filter(a=>isRealAccount(a.name));
  const cats=[...(data.categories?.expense||[]),...(data.categories?.income||[])];
  const record=existingRecord||{};
@@ -1444,7 +1446,7 @@ function showAddRecurring(existingRecord){
 }
 function bind(){const quickAddFabButton=document.getElementById('quickAddFab');if(quickAddFabButton)quickAddFabButton.onclick=()=>{window.homeAddType=null;nav('add')};document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>{if(b.dataset.nav)nav(b.dataset.nav)});
  const addRecurringBtn=document.getElementById('addRecurring')||document.getElementById('addRecurringEmpty');
- if(addRecurringBtn)addRecurringBtn.onclick=showAddRecurring;
+ if(addRecurringBtn)addRecurringBtn.onclick=()=>showAddRecurring();
  document.querySelectorAll('[data-recurring-toggle]').forEach(b=>b.onclick=()=>{
    const record=(data.recurring||[]).find(r=>String(r.id)===String(b.dataset.recurringToggle));
    if(!record)return;
