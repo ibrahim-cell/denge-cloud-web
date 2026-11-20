@@ -1421,9 +1421,18 @@ function showAddRecurring(existingRecord){
    if(!name||!Number.isFinite(amount)||amount<=0){showAlertCard('Ad ve geçerli tutar girin.','Eksik bilgi','error');return}
    data.recurring=data.recurring||[];
    if(editing){
-     const target=data.recurring.find(r=>String(r.id)===String(record.id));
-     if(!target){m.remove();showAlertCard('Düzenlenecek tekrarlayan işlem bulunamadı.','Kayıt bulunamadı','error');return}
-     Object.assign(target,{name,amount,type,category,account,dayOfMonth,active:target.active!==false});
+     // Cloud sync may replace the in-memory data object while this editor is open.
+     // Re-find by stable ID; if the remote refresh temporarily omitted it, restore
+     // the edited snapshot rather than discarding the user's form submission.
+     const recurringId=record.id;
+     const targetIndex=data.recurring.findIndex(r=>String(r.id)===String(recurringId));
+     const latest=targetIndex>=0?data.recurring[targetIndex]:null;
+     const updated=Object.assign({},record,latest||{},{
+       id:recurringId,name,amount,type,category,account,dayOfMonth,
+       active:latest?latest.active!==false:record.active!==false
+     });
+     if(targetIndex>=0)data.recurring[targetIndex]=updated;
+     else data.recurring.push(updated);
    }else{
      data.recurring.push({id:'rec-'+Date.now(),name,amount,type,category,account,dayOfMonth,active:true});
    }
