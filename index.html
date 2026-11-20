@@ -26,7 +26,7 @@
 .recurring-card .rc-icon{width:36px;height:36px;border-radius:12px;background:#eeeaff;color:#6659df;display:grid;place-items:center;flex:none}
 .recurring-card .rc-main{flex:1;min-width:0}
 .recurring-card .rc-main b{display:block;font-size:13px}
-.recurring-card .rc-main small{display:block;color:#9299aa;font-size:10px;margin-top:2px}
+.recurring-card .rc-main small{display:block;color:#9299aa;font-size:10px;margin-top:2px}.recurring-card .rc-status{display:inline-flex;align-items:center;font-size:9px;font-weight:750;margin-top:5px;padding:3px 7px;border-radius:8px}.recurring-card .rc-status.active{background:#e5f8ef;color:#159866}.recurring-card .rc-status.paused{background:#fff0d9;color:#a36a12}.recurring-card.recurring-paused{opacity:.78}.dark .recurring-card .rc-status.active{background:#16392d;color:#71d8aa}.dark .recurring-card .rc-status.paused{background:#40321d;color:#f0c36f}.rc-action.toggle{color:#269b72;background:#edfaf4;border-color:#d8f1e5}.dark .rc-action.toggle{color:#72d8ac;background:#173328;border-color:#28523f}
 .recurring-card .rc-amt{font-size:13px;font-weight:800}.rc-actions{display:flex;align-items:center;gap:5px;flex:none}.rc-action{width:34px;height:34px;border:1px solid #e9e6f3;border-radius:11px;background:#f7f5ff;color:#7165df;display:grid;place-items:center;padding:0}.rc-action svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.rc-action.delete{color:#e45f70;background:#fff1f3;border-color:#f4dce1}.dark .rc-action{background:#24243a;border-color:#38364e;color:#b4aaff}.dark .rc-action.delete{background:#392129;border-color:#59313b;color:#ff8995}.profile-menu .setting small{font-weight:500}
 .dark .recurring-card{background:#1a1b27;border-color:#2a2c3d}
 .recurring-badge{font-size:9px;padding:3px 7px;border-radius:8px;background:#eeeaff;color:#6659df;font-weight:800;margin-left:6px}
@@ -1144,7 +1144,8 @@ function recurring(){
  const list=data.recurring.length?data.recurring.map(r=>{
    const amt=Number(r.amount)||0;
    const cls=r.type==='income'?'income':'expense';
-   return '<div class="recurring-card" data-recurring-id="'+esc(String(r.id))+'"><span class="rc-icon">'+sicon(r.type==='income'?'plus':'minus')+'</span><div class="rc-main"><b>'+esc(r.name||'İşlem')+' <span class="recurring-badge">Her ay</span></b><small>'+esc(r.category||'')+' · Ayın '+esc(String(r.dayOfMonth||1))+'. günü · '+esc(r.account||'')+'</small></div><span class="rc-amt '+cls+'">'+(r.type==='income'?'+':'-')+money(Math.abs(amt))+'</span><div class="rc-actions"><button type="button" class="rc-action edit" data-recurring-edit="'+esc(String(r.id))+'" aria-label="Düzenle" title="Düzenle">'+sicon('edit')+'</button><button type="button" class="rc-action delete" data-recurring-del="'+esc(String(r.id))+'" aria-label="Sil" title="Sil">'+sicon('trash')+'</button></div></div>';
+   const isActive=r.active!==false;
+   return '<div class="recurring-card '+(isActive?'':'recurring-paused')+'" data-recurring-id="'+esc(String(r.id))+'"><span class="rc-icon">'+sicon(r.type==='income'?'plus':'minus')+'</span><div class="rc-main"><b>'+esc(r.name||'İşlem')+' <span class="recurring-badge">Her ay</span></b><small>'+esc(r.category||'')+' · Ayın '+esc(String(r.dayOfMonth||1))+'. günü · '+esc(r.account||'')+'</small><span class="rc-status '+(isActive?'active':'paused')+'">'+(isActive?'Aktif':'Duraklatıldı')+'</span></div><span class="rc-amt '+cls+'">'+(r.type==='income'?'+':'-')+money(Math.abs(amt))+'</span><div class="rc-actions"><button type="button" class="rc-action toggle" data-recurring-toggle="'+esc(String(r.id))+'" aria-label="'+(isActive?'Duraklat':'Etkinleştir')+'" title="'+(isActive?'Duraklat':'Etkinleştir')+'">'+(isActive?sicon('pause'):sicon('play'))+'</button><button type="button" class="rc-action edit" data-recurring-edit="'+esc(String(r.id))+'" aria-label="Düzenle" title="Düzenle">'+sicon('edit')+'</button><button type="button" class="rc-action delete" data-recurring-del="'+esc(String(r.id))+'" aria-label="Sil" title="Sil">'+sicon('trash')+'</button></div></div>';
  }).join(''):emptyState('calendar','Tekrarlayan işlem yok','Maaş, kira gibi her ay tekrarlayan işlemleri ekle; günü gelince otomatik kaydedilir.','Ekle','id="addRecurringEmpty"');
  return header('Tekrarlayan','settings')
   +'<div style="margin-bottom:10px"><button type="button" class="primary" id="addRecurring" style="width:100%">+ Tekrarlayan Ekle</button></div>'
@@ -1435,6 +1436,12 @@ function showAddRecurring(existingRecord){
 function bind(){const quickAddFabButton=document.getElementById('quickAddFab');if(quickAddFabButton)quickAddFabButton.onclick=()=>{window.homeAddType=null;nav('add')};document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>{if(b.dataset.nav)nav(b.dataset.nav)});
  const addRecurringBtn=document.getElementById('addRecurring')||document.getElementById('addRecurringEmpty');
  if(addRecurringBtn)addRecurringBtn.onclick=showAddRecurring;
+ document.querySelectorAll('[data-recurring-toggle]').forEach(b=>b.onclick=()=>{
+   const record=(data.recurring||[]).find(r=>String(r.id)===String(b.dataset.recurringToggle));
+   if(!record)return;
+   record.active=record.active===false;
+   save();render();toast(record.active?'Tekrarlayan işlem etkinleştirildi.':'Tekrarlayan işlem duraklatıldı.');
+ });
  document.querySelectorAll('[data-recurring-edit]').forEach(b=>b.onclick=()=>{
    const record=(data.recurring||[]).find(r=>String(r.id)===String(b.dataset.recurringEdit));
    if(record)showAddRecurring(record);
