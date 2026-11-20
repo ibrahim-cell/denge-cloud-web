@@ -1168,29 +1168,47 @@ function recurring(){
 }
 function cloudStatusInfo(s){const en=data.settings.language==='en';const map=en?{notConfigured:['Configuration required','warn'],signedOut:['Signed out','warn'],offline:['Offline','warn'],syncing:['Syncing…','warn'],synced:['Synced','ok'],queued:['Queued','warn'],confirmation:['Email confirmation required','warn'],error:['Connection issue','err']}:{notConfigured:['Yapılandırma bekleniyor','warn'],signedOut:['Oturum kapalı','warn'],offline:['Çevrimdışı','warn'],syncing:['Eşitleniyor…','warn'],synced:['Eşitlendi','ok'],queued:['Sırada bekliyor','warn'],confirmation:['E-posta doğrulaması gerekli','warn'],error:['Bağlantı sorunu','err']};return map[s&&s.state]||[en?'Checking status':'Durum kontrol ediliyor','warn']}
 function cloudSettings(){const s=window.DengeCloud?window.DengeCloud.getStatus():{state:'notConfigured',message:data.settings.language==='en'?'Cloud module could not be loaded.':'Bulut modülü yüklenemedi.',configured:false};const [label,cls]=cloudStatusInfo(s);const signed=!!s.userId;return '<section class="cloud-panel" id="cloudPanel"><div class="cloud-panel-head"><div class="cloud-panel-title"><span>'+sicon('cloud')+'</span><b>Denge Cloud</b></div><span class="cloud-state '+cls+'" id="cloudStatePill">'+esc(label)+'</span></div><p id="cloudMessage">'+esc(s.message||'Telefon ve bilgisayarındaki kayıtları ortak hesapta eşitle.')+'</p><div class="cloud-user" id="cloudUserEmail"'+(signed?'':' hidden')+'>'+esc(s.userEmail||'')+'</div><div class="cloud-actions"><button type="button" class="primary-cloud" id="cloudAuthOpen"'+(signed?' hidden':'')+'>E-posta ile giriş / kayıt</button><button type="button" id="cloudSyncNow"'+(signed?'':' hidden')+'>Şimdi eşitle</button><button type="button" class="danger-cloud" id="cloudSignOut"'+(signed?'':' hidden')+'>Oturumu kapat</button></div><p style="margin-top:10px;font-size:10px" id="cloudLastSync">'+(s.lastSyncAt?'Son eşitleme: '+esc(new Date(s.lastSyncAt).toLocaleString(data.settings.language==='en'?'en-US':'tr-TR')):'')+'</p></section>'}
-function notificationPermissionGranted(){return typeof Notification!=='undefined'&&Notification.permission==='granted'}
+function isNativeAndroidBridge(){return !!(window.AndroidBridge&&typeof AndroidBridge.isNativeAndroid==='function'&&AndroidBridge.isNativeAndroid())}
+function notificationPermissionGranted(){
+ if(isNativeAndroidBridge()&&typeof AndroidBridge.hasNotificationPermission==='function'){try{return AndroidBridge.hasNotificationPermission()}catch(e){return false}}
+ return typeof Notification!=='undefined'&&Notification.permission==='granted';
+}
 function notificationStatusLabel(){
+ if(isNativeAndroidBridge()){
+   if(!notificationPermissionGranted())return 'Android cihaz bildirim izni gerekli';
+   return data.settings.notifications?'Android bildirimi etkin':'İzin verildi, kapalı';
+ }
  if(typeof Notification==='undefined')return 'Bu uygulama ortamında desteklenmiyor';
  if(Notification.permission==='granted')return data.settings.notifications?'İzin verildi':'İzin var, kapalı';
  if(Notification.permission==='denied')return 'Tarayıcı ayarlarından izin ver';
  return 'Açmak için cihaz izni gerekir';
 }
-async function setNotificationsEnabled(enabled){
- if(!enabled){data.settings.notifications=false;save();render();toast('Bildirimler kapatıldı.');return}
- if(typeof Notification==='undefined'){
-   data.settings.notifications=false;save();render();
-   showAlertCard('Bu uygulama ortamı bildirim iznini desteklemiyor. Android’de Denge’yi Chrome üzerinden yüklenmiş PWA olarak açmayı deneyin.','Bildirim desteklenmiyor','error');return;
- }
- let permission=Notification.permission;
- if(permission==='default'){
-   try{permission=await Notification.requestPermission()}catch(e){permission='denied'}
- }
- if(permission==='granted'){
-   data.settings.notifications=true;save();render();toast('Bildirim izni etkinleştirildi.');
+window.__dengeAndroidNotificationPermissionResult=function(granted){
+ if(granted){
+   data.settings.notifications=true;save();render();toast('Android bildirim izni etkinleştirildi.');
+   try{if(window.AndroidBridge&&AndroidBridge.showLocalNotification)AndroidBridge.showLocalNotification('Denge bildirimleri etkin','Bildirim izni başarıyla açıldı.')}
+   catch(e){console.warn('Denge test bildirimi gösterilemedi:',e)}
  }else{
    data.settings.notifications=false;save();render();
-   showAlertCard(permission==='denied'?'Bildirim izni reddedildi. Cihaz veya tarayıcı ayarlarından Denge için bildirimlere izin ver.':'Bildirim izni alınamadı.','Bildirimler açılamadı','error');
+   showAlertCard('Android bildirim izni verilmedi. Telefon Ayarları > Uygulamalar > Denge > Bildirimler bölümünden izni açabilirsin.','Bildirim izni gerekli','error');
  }
+};
+async function setNotificationsEnabled(enabled){
+ if(!enabled){data.settings.notifications=false;save();render();toast('Bildirimler kapatıldı.');return}
+ if(isNativeAndroidBridge()&&typeof AndroidBridge.requestNotificationPermission==='function'){
+   if(notificationPermissionGranted()){data.settings.notifications=true;save();render();toast('Android bildirimleri zaten etkin.');return}
+   try{AndroidBridge.requestNotificationPermission();toast('Android bildirim izni isteniyor…')}
+   catch(e){showAlertCard('Android bildirim izni istenemedi. Uygulama ayarlarından bildirim iznini kontrol et.','Bildirimler açılamadı','error')}
+   return;
+ }
+ if(typeof Notification==='undefined'){
+   data.settings.notifications=false;save();render();
+   showAlertCard('Bu uygulama ortamı bildirim iznini desteklemiyor.','Bildirim desteklenmiyor','error');return;
+ }
+ let permission=Notification.permission;
+ if(permission==='default'){try{permission=await Notification.requestPermission()}catch(e){permission='denied'}}
+ if(permission==='granted'){data.settings.notifications=true;save();render();toast('Bildirim izni etkinleştirildi.')}
+ else{data.settings.notifications=false;save();render();showAlertCard(permission==='denied'?'Bildirim izni reddedildi. Cihaz veya tarayıcı ayarlarından Denge için bildirimlere izin ver.':'Bildirim izni alınamadı.','Bildirimler açılamadı','error')}
 }
 function settings(){return header('Ayarlar')+cloudSettings()+'<div class="setting-group"><button class="setting" id="theme"><span class="setleft"><span class="seticon">'+sicon('moon')+'</span><b>Tema</b></span><span class="setright">'+esc(data.settings.theme||'Açık')+' ›</span></button><button class="setting" id="notify"><span class="setleft"><span class="seticon">'+sicon('bell')+'</span><span><b>Bildirimler</b><small class="setting-sub" id="notificationStatus">'+notificationStatusLabel()+'</small></span></span><span class="switch '+(data.settings.notifications&&notificationPermissionGranted()?'on':'')+'"><i></i></span></button></div><div class="setting-group"><button class="setting" id="appLanguage"><span class="setleft"><span class="seticon">'+sicon('globe')+'</span><b>Dil</b></span><span class="setright">'+(data.settings.language==='en'?'English':'Türkçe')+' ›</span></button></div><div class="setting-group"><button class="setting" data-nav="categories"><span class="setleft"><span class="seticon">'+sicon('tag')+'</span><b>Kategoriler</b></span><span class="setright">›</span></button><button class="setting" data-nav="accounts"><span class="setleft"><span class="seticon">'+sicon('card')+'</span><b>Hesaplar</b></span><span class="setright">›</span></button><button class="setting" data-nav="budget"><span class="setleft"><span class="seticon">'+sicon('chart')+'</span><b>Bütçe</b></span><span class="setright">›</span></button><button class="setting" data-nav="recurring"><span class="setleft"><span class="seticon">'+sicon('calendar')+'</span><b>Tekrarlayan İşlemler</b></span><span class="setright">›</span></button></div><div class="setting-group"><button class="setting" id="currency"><span class="setleft"><span class="seticon">'+sicon('currency')+'</span><b>Para birimi</b></span><span class="setright">'+esc(data.settings.currency||'TRY')+' ›</span></button><button class="setting" id="security"><span class="setleft"><span class="seticon">'+sicon('shield')+'</span><b>Güvenlik</b></span><span class="switch '+(data.settings.security?'on':'')+'"><i></i></span></button></div><div class="setting-group"><div class="backup-row"><button class="setting" id="backup"><span class="setleft"><span class="seticon">'+sicon('cloud')+'</span><b>Yedekle</b></span></button><button class="setting" id="restore"><span class="setleft"><span class="seticon">'+sicon('cloud')+'</span><b>Yedek yükle</b></span></button></div><div class="settings-note">Yedek dosyası JSON olarak dışa/içe aktarılır.</div></div><div class="setting-group"><button class="setting danger-setting" id="clearData"><span class="setleft"><span class="seticon">'+sicon('trash')+'</span><b>Veri temizle</b></span><span class="setright">›</span></button></div><div class="setting-group"><button class="setting" data-nav="about"><span class="setleft"><span class="seticon">'+sicon('info')+'</span><b>Denge hakkında</b></span><span class="setright">1.1.0 ›</span></button></div><input id="restoreFile" type="file" accept="application/json,.json" hidden>'}
 

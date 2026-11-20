@@ -97,7 +97,7 @@
     else if(/email not confirmed|email unconfirmed/.test(normalized))key='emailUnconfirmed';
     else if(/user already registered|already registered|email already exists/.test(normalized))key='emailExists';
     else if(/permission denied|row.level security|violates row-level security|not allowed to access/.test(normalized))key='permissionDenied';
-    else if(/timeout|timed out|aborterror/.test(normalized))key='timeout';
+    else if(/zaman aşımı|timeout|timed out|aborterror/.test(normalized))key='timeout';
     else if(/jwt expired|token has expired|invalid jwt|refresh token/.test(normalized))key='sessionExpired';
     else if(/failed to fetch|networkerror|load failed|fetch failed|network request failed|connection refused/.test(normalized))key='genericError';
     if(currentLanguage()==='en'&&key==='genericError'&&raw)return raw;
@@ -111,6 +111,8 @@
   let baseRevision = 0;
   let pushTimer = null;
   let pollTimer = null;
+  let retryTimer = null;
+  let retryDelay = 3000;
   let syncing = false;
   let pushPromise = null;
   let initialized = false;
@@ -271,6 +273,26 @@
     if (session && session.access_token) headers.Authorization = 'Bearer ' + session.access_token;
     return headers;
   }
+
+  async function fetchWithTimeout(url, options, timeoutMs) {
+    const duration = Number(timeoutMs || 18000);
+    if (typeof AbortController === 'undefined') return fetch(url, options || {});
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), duration);
+    const requestOptions = Object.assign({}, options || {}, { signal: controller.signal });
+    try {
+      return await fetch(url, requestOptions);
+    } catch (error) {
+      if (error && error.name === 'AbortError') {
+        const timeoutError = new Error('Bağlantı zaman aşımına uğradı. Sunucu yanıt vermedi.');
+        timeoutError.name = 'TimeoutError';
+        throw timeoutError;
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
   async function parseResponse(response) {
     const bodyText = await response.text();
     let body = null;
@@ -287,7 +309,7 @@
   async function authRequest(path, body, bearer) {
     const headers = { apikey: KEY, 'Content-Type': 'application/json' };
     if (bearer) headers.Authorization = 'Bearer ' + bearer;
-    const res = await fetch(URL + '/auth/v1/' + path, { method: 'POST', headers, body: JSON.stringify(body || {}) });
+    const res = await fetchWithTimeout(URL + '/auth/v1/' + path, { method: 'POST', headers, body: JSON.stringify(body || {}) }, 18000);
     return parseResponse(res);
   }
   function persistSession(next) {
@@ -322,7 +344,7 @@
     await refreshSession();
     const opts = Object.assign({ method: 'GET' }, options || {});
     opts.headers = authHeaders(opts.headers || {});
-    const response = await fetch(URL + path, opts);
+    const response = await fetchWithTimeout(URL + path, opts, 18000);
     if (response.status === 401 && !retry && session && session.refresh_token) {
       const result = await authRequest('token?grant_type=refresh_token', { refresh_token: session.refresh_token });
       const next = Object.assign({}, result, { user: result.user || session.user });
@@ -498,6 +520,8 @@
               clearPending(uid);
               status.lastSyncAt = new Date().toISOString();
               saveUserLocal(uid);
+              if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+              retryDelay = 3000;
               setStatus('synced', text('synced'));
               startPolling();
               return;
@@ -532,6 +556,18 @@
     setStatus(navigator.onLine ? 'queued' : 'offline', navigator.onLine
       ? (currentLanguage()==='en' ? 'Sync pending: '+localizeError(error) : 'Eşitleme beklemede: '+localizeError(error))
       : text('offlinePending'));
+    if (retryTimer) clearTimeout(retryTimer);
+    if (navigator.onLine && session && session.user && configured) {
+      const delay = retryDelay;
+      retryDelay = Math.min(retryDelay * 2, 60000);
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        if (!navigator.onLine || !session || !session.user) return;
+        const queued = readJson(pendingKey(session.user.id), null);
+        if (queued) schedulePush();
+        else bootstrapAccount();
+      }, delay);
+    }
   }
   async function bootstrapAccount() {
     if (!session || !session.user || !navigator.onLine) {
@@ -707,6 +743,8 @@
 
   window.addEventListener('online', function () {
     status.online = true;
+    retryDelay = 3000;
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
     if (session && session.user) { setStatus('syncing', text('connectionBack')); schedulePush(); pollRemote(); }
     else setStatus('signedOut', text('onlineReady'));
   });
