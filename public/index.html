@@ -27,7 +27,7 @@
 .recurring-card .rc-main{flex:1;min-width:0}
 .recurring-card .rc-main b{display:block;font-size:13px}
 .recurring-card .rc-main small{display:block;color:#9299aa;font-size:10px;margin-top:2px}
-.recurring-card .rc-amt{font-size:13px;font-weight:800}
+.recurring-card .rc-amt{font-size:13px;font-weight:800}.rc-actions{display:flex;align-items:center;gap:5px;flex:none}.rc-action{width:34px;height:34px;border:1px solid #e9e6f3;border-radius:11px;background:#f7f5ff;color:#7165df;display:grid;place-items:center;padding:0}.rc-action svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.rc-action.delete{color:#e45f70;background:#fff1f3;border-color:#f4dce1}.dark .rc-action{background:#24243a;border-color:#38364e;color:#b4aaff}.dark .rc-action.delete{background:#392129;border-color:#59313b;color:#ff8995}.profile-menu .setting small{font-weight:500}
 .dark .recurring-card{background:#1a1b27;border-color:#2a2c3d}
 .recurring-badge{font-size:9px;padding:3px 7px;border-radius:8px;background:#eeeaff;color:#6659df;font-weight:800;margin-left:6px}
 .dark .recurring-badge{background:#29254b;color:#aaa0ff}.seticon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.danger-setting{color:#df5869!important}.danger-setting .seticon{background:#ffe9ed;color:#df5869}.dark .danger-setting .seticon{background:#452329;color:#ff8995}.seticon{font-size:0}.seticon svg *{vector-effect:non-scaling-stroke}.dark{color:#eef0fa;background:#10111a}.dark .app{background:#10111a}.dark .card,.dark .setting-group,.dark .account,.dark .search,.dark .outline,.dark .field{background:#181a27;border-color:#292c3c;color:#eef0fa}.dark .bottom{background:#151722;border-color:#292c3c}.dark .setting,.dark .cat-list>div{border-color:#292c3c}.dark .muted,.dark .txmain span,.dark .summary-grid span{color:#9299aa}.dark .seg{background:#202332}.dark .seg button.on{background:#181a27}.dark .iconbtn:hover{background:#181a27}.dark .donut>div{background:#181a27}
@@ -1035,7 +1035,7 @@ function profile(){
  +'<div class="profile-section-title">Hesabım</div><div class="profile-menu">'
  +'<div class="setting-group"><button class="setting" data-nav="accounts"><span class="setleft"><span class="seticon">'+sicon('card')+'</span><span><b>Hesaplarım</b></span></span><span class="setright">'+data.accounts.length+' hesap ›</span></button><button class="setting" data-nav="categories"><span class="setleft"><span class="seticon">'+sicon('tag')+'</span><span><b>Kategoriler</b></span></span><span class="setright">'+catCount+' kategori ›</span></button><button class="setting" data-nav="budget"><span class="setleft"><span class="seticon">'+sicon('chart')+'</span><span><b>Finansal hedef & bütçe</b></span></span><span class="setright">›</span></button></div>'
  +'</div><div class="profile-section-title">Uygulama</div><div class="profile-menu">'
- +'<div class="setting-group"><button class="setting" data-nav="settings"><span class="setleft"><span class="seticon">'+sicon('moon')+'</span><span><b>Görünüm ve tercihler</b></span></span><span class="setright">'+esc(data.settings.theme||'Açık')+' ›</span></button><button class="setting" data-nav="settings"><span class="setleft"><span class="seticon">'+sicon('shield')+'</span><span><b>Güvenlik & yedekleme</b></span></span><span class="setright">›</span></button></div>'
+ +'<div class="setting-group"><button class="setting" data-nav="settings"><span class="setleft"><span class="seticon">'+sicon('moon')+'</span><span><b>Görünüm, Güvenlik ve Yedekleme</b><small class="muted" style="display:block;font-size:10px;margin-top:3px">Tema, dil, bildirimler, PIN ve veri yedekleri</small></span></span><span class="setright">Ayarlar ›</span></button></div>'
  +'<button class="profile-about-card" data-nav="about"><img class="profile-about-logo" src="./assets/brand/denge-lotus-192.png" alt="Denge"><div><b>Denge hakkında</b><span>Uygulama bilgisi ve proje kimliği</span></div><span class="chev">›</span></button>'
  +'</div><div style="height:8px"></div>';
 }
@@ -1144,7 +1144,7 @@ function recurring(){
  const list=data.recurring.length?data.recurring.map(r=>{
    const amt=Number(r.amount)||0;
    const cls=r.type==='income'?'income':'expense';
-   return '<div class="recurring-card" data-recurring-id="'+esc(String(r.id))+'"><span class="rc-icon">'+sicon(r.type==='income'?'plus':'minus')+'</span><div class="rc-main"><b>'+esc(r.name||'İşlem')+' <span class="recurring-badge">Her ay</span></b><small>'+esc(r.category||'')+' · Ayın '+esc(String(r.dayOfMonth||1))+'. günü · '+esc(r.account||'')+'</small></div><span class="rc-amt '+cls+'">'+(r.type==='income'?'+':'-')+money(Math.abs(amt))+'</span><button type="button" class="delete" data-recurring-del="'+esc(String(r.id))+'" aria-label="Sil">'+sicon('trash')+'</button></div>';
+   return '<div class="recurring-card" data-recurring-id="'+esc(String(r.id))+'"><span class="rc-icon">'+sicon(r.type==='income'?'plus':'minus')+'</span><div class="rc-main"><b>'+esc(r.name||'İşlem')+' <span class="recurring-badge">Her ay</span></b><small>'+esc(r.category||'')+' · Ayın '+esc(String(r.dayOfMonth||1))+'. günü · '+esc(r.account||'')+'</small></div><span class="rc-amt '+cls+'">'+(r.type==='income'?'+':'-')+money(Math.abs(amt))+'</span><div class="rc-actions"><button type="button" class="rc-action edit" data-recurring-edit="'+esc(String(r.id))+'" aria-label="Düzenle" title="Düzenle">'+sicon('edit')+'</button><button type="button" class="rc-action delete" data-recurring-del="'+esc(String(r.id))+'" aria-label="Sil" title="Sil">'+sicon('trash')+'</button></div></div>';
  }).join(''):emptyState('calendar','Tekrarlayan işlem yok','Maaş, kira gibi her ay tekrarlayan işlemleri ekle; günü gelince otomatik kaydedilir.','Ekle','id="addRecurringEmpty"');
  return header('Tekrarlayan','settings')
   +'<div style="margin-bottom:10px"><button type="button" class="primary" id="addRecurring" style="width:100%">+ Tekrarlayan Ekle</button></div>'
@@ -1392,20 +1392,23 @@ function showEditTransaction(id){
  document.getElementById('txEditSave').onclick=()=>{const n=Number(String(document.getElementById('editAmount').value).replace(',','.'));const name=document.getElementById('editName').value.trim();const date=document.getElementById('editDate').value;if(!Number.isFinite(n)||n<=0){showAlertCard('Geçerli bir tutar girin.','Geçersiz tutar','error');return}if(!date){showAlertCard('Tarih seçin.','Tarih gerekli','error');return}t.amount=type==='income'?n:-n;t.name=name||category;t.category=category;t.account=account;t.date=date;save();close();render()};
 }
 
-function showAddRecurring(){
+function showAddRecurring(existingRecord){
+ const editing=!!existingRecord;
  const accounts=(data.accounts||[]).filter(a=>isRealAccount(a.name));
  const cats=[...(data.categories?.expense||[]),...(data.categories?.income||[])];
- const html='<div class="settings-modal" id="recurringModal"><div class="pin-modal-card" style="text-align:left;max-width:340px"><h3 style="margin-top:0">Tekrarlayan İşlem</h3>'
-  +'<label class="muted" style="font-size:11px">Tür</label><div class="debt-choice" style="margin-bottom:8px"><button type="button" data-rec-type="expense" class="active">Gider</button><button type="button" data-rec-type="income">Gelir</button></div>'
-  +'<label class="muted" style="font-size:11px">Ad</label><input id="recName" class="field" placeholder="Örn: Kira, Maaş" style="width:100%;margin-bottom:8px">'
-  +'<label class="muted" style="font-size:11px">Tutar</label><div class="amount-field" style="margin-bottom:8px"><span>₺</span><input id="recAmount" inputmode="decimal" placeholder="0"></div>'
-  +'<label class="muted" style="font-size:11px">Kategori</label><select id="recCat" class="field" style="width:100%;margin-bottom:8px">'+cats.map(c=>'<option>'+esc(c)+'</option>').join('')+'</select>'
-  +'<label class="muted" style="font-size:11px">Hesap</label><select id="recAccount" class="field" style="width:100%;margin-bottom:8px">'+accounts.map(a=>'<option>'+esc(a.name)+'</option>').join('')+'</select>'
-  +'<label class="muted" style="font-size:11px">Ayın günü (1-28)</label><input id="recDay" class="field" inputmode="numeric" value="1" style="width:100%;margin-bottom:12px">'
-  +'<div class="pin-actions"><button class="pin-cancel" id="recCancel">Vazgeç</button><button class="pin-primary" id="recSave">Kaydet</button></div></div></div>';
+ const record=existingRecord||{};
+ const escVal=v=>esc(String(v==null?'':v));
+ const html='<div class="settings-modal" id="recurringModal"><div class="pin-modal-card" style="text-align:left;max-width:340px"><h3 style="margin-top:0">'+(editing?'Tekrarlayan İşlemi Düzenle':'Tekrarlayan İşlem')+'</h3>'
+  +'<label class="muted" style="font-size:11px">Tür</label><div class="debt-choice" style="margin-bottom:8px"><button type="button" data-rec-type="expense" class="'+(record.type==='income'?'':'active')+'">Gider</button><button type="button" data-rec-type="income" class="'+(record.type==='income'?'active':'')+'">Gelir</button></div>'
+  +'<label class="muted" style="font-size:11px">Ad</label><input id="recName" class="field" placeholder="Örn: Kira, Maaş" value="'+escVal(record.name)+'" style="width:100%;margin-bottom:8px">'
+  +'<label class="muted" style="font-size:11px">Tutar</label><div class="amount-field" style="margin-bottom:8px"><span>₺</span><input id="recAmount" inputmode="decimal" placeholder="0" value="'+(record.amount!=null?escVal(record.amount):'')+'"></div>'
+  +'<label class="muted" style="font-size:11px">Kategori</label><select id="recCat" class="field" style="width:100%;margin-bottom:8px">'+cats.map(c=>'<option value="'+esc(c)+'" '+(c===record.category?'selected':'')+'>'+esc(c)+'</option>').join('')+'</select>'
+  +'<label class="muted" style="font-size:11px">Hesap</label><select id="recAccount" class="field" style="width:100%;margin-bottom:8px">'+accounts.map(a=>'<option value="'+esc(a.name)+'" '+(a.name===record.account?'selected':'')+'>'+esc(a.name)+'</option>').join('')+'</select>'
+  +'<label class="muted" style="font-size:11px">Ayın günü (1-28)</label><input id="recDay" class="field" inputmode="numeric" value="'+(record.dayOfMonth||1)+'" style="width:100%;margin-bottom:12px">'
+  +'<div class="pin-actions"><button class="pin-cancel" id="recCancel">Vazgeç</button><button class="pin-primary" id="recSave">'+(editing?'Değişiklikleri Kaydet':'Kaydet')+'</button></div></div></div>';
  document.body.insertAdjacentHTML('beforeend',html);
  const m=document.getElementById('recurringModal');
- let type='expense';
+ let type=record.type==='income'?'income':'expense';
  document.querySelectorAll('[data-rec-type]').forEach(b=>b.onclick=()=>{type=b.dataset.recType;document.querySelectorAll('[data-rec-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active')});
  document.getElementById('recCancel').onclick=()=>m.remove();
  document.getElementById('recSave').onclick=()=>{
@@ -1416,20 +1419,40 @@ function showAddRecurring(){
    const dayOfMonth=Math.min(28,Math.max(1,parseInt(document.getElementById('recDay').value,10)||1));
    if(!name||!Number.isFinite(amount)||amount<=0){showAlertCard('Ad ve geçerli tutar girin.','Eksik bilgi','error');return}
    data.recurring=data.recurring||[];
-   data.recurring.push({id:'rec-'+Date.now(),name,amount,type,category,account,dayOfMonth,active:true});
+   if(editing){
+     const target=data.recurring.find(r=>String(r.id)===String(record.id));
+     if(!target){m.remove();showAlertCard('Düzenlenecek tekrarlayan işlem bulunamadı.','Kayıt bulunamadı','error');return}
+     Object.assign(target,{name,amount,type,category,account,dayOfMonth,active:target.active!==false});
+   }else{
+     data.recurring.push({id:'rec-'+Date.now(),name,amount,type,category,account,dayOfMonth,active:true});
+   }
    save();m.remove();
-   try{processRecurring()}catch(e){}
-   page='recurring';render();toast('Tekrarlayan işlem eklendi.');
+   if(!editing){try{processRecurring()}catch(e){}}
+   page='recurring';render();toast(editing?'Tekrarlayan işlem güncellendi.':'Tekrarlayan işlem eklendi.');
  };
  m.onclick=e=>{if(e.target===m)m.remove()};
 }
 function bind(){const quickAddFabButton=document.getElementById('quickAddFab');if(quickAddFabButton)quickAddFabButton.onclick=()=>{window.homeAddType=null;nav('add')};document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>{if(b.dataset.nav)nav(b.dataset.nav)});
  const addRecurringBtn=document.getElementById('addRecurring')||document.getElementById('addRecurringEmpty');
  if(addRecurringBtn)addRecurringBtn.onclick=showAddRecurring;
+ document.querySelectorAll('[data-recurring-edit]').forEach(b=>b.onclick=()=>{
+   const record=(data.recurring||[]).find(r=>String(r.id)===String(b.dataset.recurringEdit));
+   if(record)showAddRecurring(record);
+ });
  document.querySelectorAll('[data-recurring-del]').forEach(b=>b.onclick=()=>{
    const id=b.dataset.recurringDel;
-   data.recurring=(data.recurring||[]).filter(r=>String(r.id)!==String(id));
-   save();render();toast('Tekrarlayan işlem silindi.');
+   const record=(data.recurring||[]).find(r=>String(r.id)===String(id));
+   if(!record)return;
+   const modalHtml='<div class="settings-modal" id="recurringDeleteModal"><div class="pin-modal-card" style="text-align:left;max-width:330px"><div class="confirm-icon">'+sicon('trash')+'</div><h3>Tekrarlayan işlemi sil</h3><p><b>'+esc(record.name||'İşlem')+'</b> tekrar listesinden kaldırılacak. Daha önce oluşturulmuş işlemler silinmeyecek.</p><div class="pin-actions"><button type="button" class="pin-cancel" id="recDeleteCancel">Vazgeç</button><button type="button" class="pin-primary" id="recDeleteConfirm">Sil</button></div></div></div>';
+   document.getElementById('recurringDeleteModal')?.remove();
+   document.body.insertAdjacentHTML('beforeend',modalHtml);
+   const modal=document.getElementById('recurringDeleteModal');
+   document.getElementById('recDeleteCancel').onclick=()=>modal.remove();
+   document.getElementById('recDeleteConfirm').onclick=()=>{
+     data.recurring=(data.recurring||[]).filter(r=>String(r.id)!==String(id));
+     save();modal.remove();render();toast('Tekrarlayan işlem silindi.');
+   };
+   modal.onclick=e=>{if(e.target===modal)modal.remove()};
  });
  const addGoalEmpty=document.getElementById('addGoalEmpty');
  if(addGoalEmpty){const ag=document.getElementById('addGoal');if(ag)addGoalEmpty.onclick=()=>ag.click();}
