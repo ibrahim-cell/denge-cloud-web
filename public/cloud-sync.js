@@ -137,8 +137,17 @@
     catch (error) { setStatus('error', text('storageFull')); return false; }
   }
   function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
+  function stableValue(value) {
+    if (Array.isArray(value)) return value.map(stableValue);
+    if (value && typeof value === 'object') {
+      const sorted = {};
+      Object.keys(value).sort().forEach(key => { sorted[key] = stableValue(value[key]); });
+      return sorted;
+    }
+    return value;
+  }
   function same(a, b) {
-    try { return JSON.stringify(a) === JSON.stringify(b); } catch (_) { return false; }
+    try { return JSON.stringify(stableValue(a)) === JSON.stringify(stableValue(b)); } catch (_) { return false; }
   }
   function setStatus(state, message) {
     status.state = state;
