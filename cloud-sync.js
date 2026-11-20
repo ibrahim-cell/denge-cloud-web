@@ -97,7 +97,7 @@
     else if(/email not confirmed|email unconfirmed/.test(normalized))key='emailUnconfirmed';
     else if(/user already registered|already registered|email already exists/.test(normalized))key='emailExists';
     else if(/permission denied|row.level security|violates row-level security|not allowed to access/.test(normalized))key='permissionDenied';
-    else if(/timeout|timed out|aborterror/.test(normalized))key='timeout';
+    else if(/zaman aşımı|timeout|timed out|aborterror/.test(normalized))key='timeout';
     else if(/jwt expired|token has expired|invalid jwt|refresh token/.test(normalized))key='sessionExpired';
     else if(/failed to fetch|networkerror|load failed|fetch failed|network request failed|connection refused/.test(normalized))key='genericError';
     if(currentLanguage()==='en'&&key==='genericError'&&raw)return raw;
