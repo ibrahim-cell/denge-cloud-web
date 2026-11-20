@@ -1039,11 +1039,16 @@ function profile(){
  +'<button class="profile-about-card" data-nav="about"><img class="profile-about-logo" src="./assets/brand/denge-lotus-192.png" alt="Denge"><div><b>Denge hakkında</b><span>Uygulama bilgisi ve proje kimliği</span></div><span class="chev">›</span></button>'
  +'</div><div style="height:8px"></div>';
 }
-function about(){return '<div class="header"><button class="iconbtn" data-nav="profile">‹</button><h1>Hakkında</h1><span></span></div>'
+function about(){
+ const webVersion='1.1.1';
+ const nativeVersion=isNativeAndroidBridge()&&typeof AndroidBridge.getAppVersionName==='function'?AndroidBridge.getAppVersionName():'';
+ const appVersion=nativeVersion||webVersion;
+ const platformLabel=isNativeAndroidBridge()?'Android APK · WebView':(/Android/i.test(navigator.userAgent)?'Android · Chrome / PWA':(/Windows|Macintosh|Linux/i.test(navigator.userAgent)?'PC · Web / Chrome':'Web · Chrome / PWA'));
+ return '<div class="header"><button class="iconbtn" data-nav="profile">‹</button><h1>Hakkında</h1><span></span></div>'
  +'<section class="about-hero"><img class="about-logo" src="./assets/brand/denge-lotus-192.png" alt="Denge logo"><h2>Denge</h2><p>Kolay Finans, Güzel Yaşam</p><div class="about-quote">“Finansal denge, daha özgür bir yaşam.”</div></section>'
  +'<section class="about-card"><div class="about-card-head"><span class="about-icon">'+sicon('info')+'</span><h3>Denge nedir?</h3></div><p>Denge; gelirlerini, giderlerini, hesaplarını, transferlerini, borçlarını ve finansal hedeflerini tek bir yerde yönetmek için tasarlanan kişisel finans uygulamasıdır.</p></section>'
  +'<section class="about-card"><div class="about-owner"><div class="about-owner-mark">İS</div><div><b>İbrahim Soylu</b><span>Kurucu · Proje Sahibi · Tasarım & Geliştirme</span></div></div></section>'
- +'<section class="about-card"><div class="about-card-head"><span class="about-icon">'+sicon('chart')+'</span><h3>Proje Kimliği</h3></div><div class="about-table"><div class="about-line"><span>Proje</span><b>Denge</b></div><div class="about-line"><span>Proje sahibi</span><b>İbrahim Soylu</b></div><div class="about-line"><span>Ürün</span><b>Kişisel Finans Yönetimi</b></div><div class="about-line"><span>Sürüm</span><b>1.1.0</b></div><div class="about-line"><span>Platform</span><b>Android · Chrome · PWA</b></div></div></section>'
+ +'<section class="about-card"><div class="about-card-head"><span class="about-icon">'+sicon('chart')+'</span><h3>Proje Kimliği</h3></div><div class="about-table"><div class="about-line"><span>Proje</span><b>Denge</b></div><div class="about-line"><span>Proje sahibi</span><b>İbrahim Soylu</b></div><div class="about-line"><span>Ürün</span><b>Kişisel Finans Yönetimi</b></div><div class="about-line"><span>Sürüm</span><b>'+esc(appVersion)+'</b></div><div class="about-line"><span>Platform</span><b>'+esc(platformLabel)+'</b></div></div></section>'
  +'<section class="about-card"><div class="about-card-head"><span class="about-icon">'+sicon('rocket')+'</span><h3>Vizyon</h3></div><p><b>Finansı karmaşıklaştırmadan yönetilebilir hale getirmek.</b></p></section>'
  +'<section class="about-card"><div class="about-card-head"><span class="about-icon">'+sicon('shield')+'</span><h3>Veri & Gizlilik</h3></div><p>Finansal verilerin kontrolünün kullanıcıda kalması ve uygulamanın sade, güvenilir bir deneyim sunması hedeflenmektedir.</p></section>'
  +'<section class="about-card"><div class="about-card-head"><span class="about-icon">'+sicon('heart')+'</span><h3>Denge’nin Hikâyesi</h3></div><p>Bir fikirle başladı. Günlük gelir-gider takibini daha kolay, anlaşılır ve kişisel hale getirmek için geliştiriliyor.</p></section>'
@@ -1169,6 +1174,20 @@ function recurring(){
 function cloudStatusInfo(s){const en=data.settings.language==='en';const map=en?{notConfigured:['Configuration required','warn'],signedOut:['Signed out','warn'],offline:['Offline','warn'],syncing:['Syncing…','warn'],synced:['Synced','ok'],queued:['Queued','warn'],confirmation:['Email confirmation required','warn'],error:['Connection issue','err']}:{notConfigured:['Yapılandırma bekleniyor','warn'],signedOut:['Oturum kapalı','warn'],offline:['Çevrimdışı','warn'],syncing:['Eşitleniyor…','warn'],synced:['Eşitlendi','ok'],queued:['Sırada bekliyor','warn'],confirmation:['E-posta doğrulaması gerekli','warn'],error:['Bağlantı sorunu','err']};return map[s&&s.state]||[en?'Checking status':'Durum kontrol ediliyor','warn']}
 function cloudSettings(){const s=window.DengeCloud?window.DengeCloud.getStatus():{state:'notConfigured',message:data.settings.language==='en'?'Cloud module could not be loaded.':'Bulut modülü yüklenemedi.',configured:false};const [label,cls]=cloudStatusInfo(s);const signed=!!s.userId;return '<section class="cloud-panel" id="cloudPanel"><div class="cloud-panel-head"><div class="cloud-panel-title"><span>'+sicon('cloud')+'</span><b>Denge Cloud</b></div><span class="cloud-state '+cls+'" id="cloudStatePill">'+esc(label)+'</span></div><p id="cloudMessage">'+esc(s.message||'Telefon ve bilgisayarındaki kayıtları ortak hesapta eşitle.')+'</p><div class="cloud-user" id="cloudUserEmail"'+(signed?'':' hidden')+'>'+esc(s.userEmail||'')+'</div><div class="cloud-actions"><button type="button" class="primary-cloud" id="cloudAuthOpen"'+(signed?' hidden':'')+'>E-posta ile giriş / kayıt</button><button type="button" id="cloudSyncNow"'+(signed?'':' hidden')+'>Şimdi eşitle</button><button type="button" class="danger-cloud" id="cloudSignOut"'+(signed?'':' hidden')+'>Oturumu kapat</button></div><p style="margin-top:10px;font-size:10px" id="cloudLastSync">'+(s.lastSyncAt?'Son eşitleme: '+esc(new Date(s.lastSyncAt).toLocaleString(data.settings.language==='en'?'en-US':'tr-TR')):'')+'</p></section>'}
 function isNativeAndroidBridge(){return !!(window.AndroidBridge&&typeof AndroidBridge.isNativeAndroid==='function'&&AndroidBridge.isNativeAndroid())}
+function isNativeBiometricAvailable(){
+ if(!isNativeAndroidBridge()||typeof AndroidBridge.isBiometricAvailable!=='function')return false;
+ try{return AndroidBridge.isBiometricAvailable()}catch(e){return false}
+}
+window.__dengeAndroidBiometricResult=function(success,message){
+ const modal=document.getElementById('pinLockModal');
+ if(!modal)return;
+ if(success){
+   appLocked=false;setPinGateVisible(false);modal.remove();
+   if(window.__dengeMaybeShowCloudAuth)setTimeout(window.__dengeMaybeShowCloudAuth,120);
+ }else if(message){
+   const err=document.getElementById('unlockErr');if(err)err.textContent=message;
+ }
+};
 function notificationPermissionGranted(){
  if(isNativeAndroidBridge()&&typeof AndroidBridge.hasNotificationPermission==='function'){try{return AndroidBridge.hasNotificationPermission()}catch(e){return false}}
  return typeof Notification!=='undefined'&&Notification.permission==='granted';
@@ -1559,8 +1578,9 @@ function showPinUnlock(){
  if(document.getElementById('pinLockModal')) return;
  if(!data.settings.security||!data.settings.pin||appLocked===false&&window.__pinBootDone)return;
  appLocked=true;window.__pinBootDone=true;setPinGateVisible(true);
- const html='<div class="settings-modal" id="pinLockModal"><div class="pin-modal-card"><div class="pin-modal-icon">'+sicon('shield')+'</div><h3>Denge kilitli</h3><p>Finansal verilerine devam etmek için güvenlik PIN’ini gir.</p><input id="unlockPin" class="pin-field" inputmode="numeric" maxlength="4" type="password" placeholder="••••" autocomplete="off"><div class="pin-error" id="unlockErr"></div><div class="pin-actions"><button class="pin-primary" style="grid-column:1/-1" id="unlockBtn">Kilidi Aç</button></div></div></div>';
- document.body.insertAdjacentHTML('beforeend',html);const i=document.getElementById('unlockPin'),err=document.getElementById('unlockErr');i.focus();const unlock=async()=>{const ok=await verifyPin(i.value);if(ok){appLocked=false;setPinGateVisible(false);document.getElementById('pinLockModal').remove();if(window.__dengeMaybeShowCloudAuth)setTimeout(window.__dengeMaybeShowCloudAuth,120)}else{err.textContent='PIN yanlış. Tekrar deneyin.';i.value='';i.focus()}};document.getElementById('unlockBtn').onclick=unlock;i.onkeydown=e=>{if(e.key==='Enter')unlock()};
+ const biometricButton=isNativeBiometricAvailable()?'<button type="button" class="pin-cancel" style="grid-column:1/-1" id="unlockBiometricBtn"><span aria-hidden="true">◉</span> Parmak izi ile aç</button>':'';
+ const html='<div class="settings-modal" id="pinLockModal"><div class="pin-modal-card"><div class="pin-modal-icon">'+sicon('shield')+'</div><h3>Denge kilitli</h3><p>Finansal verilerine devam etmek için güvenlik PIN’ini gir.</p>'+biometricButton+'<input id="unlockPin" class="pin-field" inputmode="numeric" maxlength="4" type="password" placeholder="••••" autocomplete="off"><div class="pin-error" id="unlockErr"></div><div class="pin-actions"><button class="pin-primary" style="grid-column:1/-1" id="unlockBtn">Kilidi Aç</button></div></div></div>';
+ document.body.insertAdjacentHTML('beforeend',html);const i=document.getElementById('unlockPin'),err=document.getElementById('unlockErr');i.focus();const unlock=async()=>{const ok=await verifyPin(i.value);if(ok){appLocked=false;setPinGateVisible(false);document.getElementById('pinLockModal').remove();if(window.__dengeMaybeShowCloudAuth)setTimeout(window.__dengeMaybeShowCloudAuth,120)}else{err.textContent='PIN yanlış. Tekrar deneyin.';i.value='';i.focus()}};document.getElementById('unlockBtn').onclick=unlock;const bioBtn=document.getElementById('unlockBiometricBtn');if(bioBtn)bioBtn.onclick=()=>{try{AndroidBridge.authenticateBiometric()}catch(e){err.textContent='Biyometrik doğrulama başlatılamadı.'}};i.onkeydown=e=>{if(e.key==='Enter')unlock()};
 }
 function showClearDataConfirm(){
  const cloud=window.DengeCloud&&window.DengeCloud.getStatus?window.DengeCloud.getStatus():null;
