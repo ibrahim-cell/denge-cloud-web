@@ -677,6 +677,18 @@ function add(){
  +'<div id="commonFields"><label>Tarih</label><div class="select-wrap date-wrap"><span class="field-icon">'+sicon('calendar')+'</span><input id="txDate" type="hidden" value="'+today+'"><button type="button" id="datePickerBtn" class="field picker-trigger date-trigger"><span class="picker-value" id="datePickerLabel">'+formatDateTR(today)+'</span><span class="chevron">›</span></button></div><label>Açıklama <small>(isteğe bağlı)</small></label><input id="name" class="field description-field" placeholder="Örn: Eylül maaşı"></div><button id="saveTx" class="primary save-tx">Kaydet</button></div></div>'
 }
 
+function networth(){
+ const all=(data.netWorthHistory||[]).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(String(x.date||''))&&Number.isFinite(Number(x.value))).slice().sort((a,b)=>a.date.localeCompare(b.date));
+ const range=window.netWorthRange||'30',days=range==='7'?7:range==='365'?365:range==='all'?null:30;
+ const cutoff=new Date();if(days){cutoff.setHours(0,0,0,0);cutoff.setDate(cutoff.getDate()-days+1)}
+ const points=days?all.filter(x=>new Date(x.date+'T00:00:00')>=cutoff):all;
+ const current=Number(totalRealAccountBalance())||0,first=points[0],last=points[points.length-1],delta=first&&last?Number(last.value)-Number(first.value):0;
+ const fmt=d=>new Intl.DateTimeFormat('tr-TR',{day:'numeric',month:'short'}).format(new Date(d+'T00:00:00'));
+ let chart='<div class="nw-empty">Günlük geçmiş kayıtları biriktikçe grafik burada görünecek.</div>';
+ if(points.length){const vals=points.map(x=>Number(x.value)),min=Math.min(0,...vals),max=Math.max(0,...vals),span=max-min||1,coords=points.map((x,i)=>({x:12+(points.length===1?148:i/(points.length-1)*296),y:112-((Number(x.value)-min)/span)*92})),line=coords.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ');chart='<svg class="nw-chart" viewBox="0 0 320 142" role="img" aria-label="Net varlık geçmişi"><polyline points="'+line+'" fill="none" stroke="#6d5dfc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'+coords.map((p,i)=>i===coords.length-1?'<circle cx="'+p.x+'" cy="'+p.y+'" r="4.5" fill="#6d5dfc"/>':'').join('')+'</svg><div class="nw-chart-labels"><span>'+fmt(points[0].date)+'</span><span>'+fmt(points[points.length-1].date)+'</span></div>'}
+ const ranges=[['7','7 Gün'],['30','30 Gün'],['365','1 Yıl'],['all','Tümü']];
+ return '<div class="nw-page"><div class="nw-header"><button class="nw-back" data-nav="home">‹</button><h1>Net Varlık Geçmişi</h1><span></span></div><section class="nw-hero"><span>Güncel net varlık</span><strong>'+(hide?'••••••':money(current))+'</strong><small>Hesap bakiyelerinin toplamı</small></section><section class="nw-card"><div class="nw-card-head"><b>Varlık değişimi</b><strong class="'+(delta>=0?'nw-up':'nw-down')+'">'+(first&&last?(delta>0?'+':'')+money(delta):'—')+'</strong></div><div class="nw-ranges">'+ranges.map(([v,l])=>'<button data-networth-range="'+v+'" class="'+(range===v?'active':'')+'">'+l+'</button>').join('')+'</div>'+chart+'</section><section class="nw-card nw-info"><b>Geçmiş kayıtları</b><p>Denge her gün açıldığında ve finansal kayıtlar kaydedildiğinde o günün hesap bakiyesi güncellenir. Önceki günlere ait kayıt yoksa geçmiş değer tahmin edilmez.</p></section></div>';
+}
 function analysisCategoryIcon(k){return getCategoryIcon(k)}
 function analysis(){
  const ym=/^\d{4}-\d{2}$/.test(analysisMonth)?analysisMonth:'2026-09';
