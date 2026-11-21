@@ -1264,18 +1264,26 @@ function sendFinanceNotification(title,body,tag){
 function syncNativeFinanceSchedule(){
  if(!isNativeAndroidBridge()||typeof AndroidBridge.syncFinanceReminderSchedule!=='function')return;
  const enabled=!!(data.settings.notifications&&notificationPermissionGranted());
+ const budgetMonthKey=currentMonth(),spentByCategory={};
+ (data.transactions||[]).forEach(t=>{if(String(t.date||'').slice(0,7)!==budgetMonthKey||t.type==='transfer'||t.type==='debt')return;const amount=Number(t.amount)||0;if(amount<0){const category=String(t.category||'Diğer');spentByCategory[category]=(spentByCategory[category]||0)+Math.abs(amount)}});
  const payload={
   enabled,
   recurringReminders:data.settings.recurringReminders!==false,
   recurringReminderDays:Number(data.settings.recurringReminderDays??1),
   recurringReminderTime:data.settings.recurringReminderTime||'09:00',
-  reminders:(data.reminders||[]).filter(r=>r&&r.active!==false).map(r=>({id:String(r.id),title:String(r.title||'Ödeme hatırlatması'),date:String(r.date||''),amount:Number(r.amount)||0,daysBefore:Number(r.daysBefore)||0,time:String(r.time||'09:00'),repeatMonthly:!!r.repeatMonthly,note:String(r.note||'')})),
-  recurring:(data.recurring||[]).filter(r=>r&&r.active!==false).map(r=>({id:String(r.id),title:String(r.name||'Tekrarlayan ödeme'),amount:Number(r.amount)||0,type:String(r.type||'expense'),dayOfMonth:Math.min(28,Math.max(1,Number(r.dayOfMonth||1)))}))
+  budgetMonth:budgetMonthKey,
+  budgetAlert80:data.settings.budgetAlert80!==false,
+  budgetAlert100:data.settings.budgetAlert100!==false,
+  budgets:Object.entries(data.budgets||{}).map(([category,limit])=>({category,limit:Number(limit)||0,spent:Number(spentByCategory[category]||0),spentLabel:money(spentByCategory[category]||0),limitLabel:money(Number(limit)||0)})),
+  reminders:(data.reminders||[]).filter(r=>r&&r.active!==false).map(r=>({id:String(r.id),title:String(r.title||'Ödeme hatırlatması'),date:String(r.date||''),amount:Number(r.amount)||0,amountLabel:Number(r.amount)>0?money(r.amount):'',daysBefore:Number(r.daysBefore)||0,time:String(r.time||'09:00'),repeatMonthly:!!r.repeatMonthly,note:String(r.note||'')})),
+  recurring:(data.recurring||[]).filter(r=>r&&r.active!==false).map(r=>({id:String(r.id),title:String(r.name||'Tekrarlayan ödeme'),amount:Number(r.amount)||0,amountLabel:money(Number(r.amount)||0),type:String(r.type||'expense'),dayOfMonth:Math.min(28,Math.max(1,Number(r.dayOfMonth||1)))}))
  };
  try{AndroidBridge.syncFinanceReminderSchedule(JSON.stringify(payload))}catch(e){console.warn('Android hatırlatma takvimi aktarılamadı:',e)}
 }
 function checkBudgetThresholdAlerts(){
  if(!data.settings.notifications||!notificationPermissionGranted())return;
+ // Native APK budget thresholds are evaluated by the persistent WorkManager job.
+ if(isNativeAndroidBridge()&&typeof AndroidBridge.syncFinanceReminderSchedule==='function')return;
  const month=currentMonth(),spent={};
  (data.transactions||[]).forEach(t=>{if(String(t.date||'').slice(0,7)!==month||t.type==='transfer'||t.type==='debt')return;const amount=Number(t.amount)||0;if(amount<0){const cat=String(t.category||'Diğer');spent[cat]=(spent[cat]||0)+Math.abs(amount)}});
  let sent={};try{sent=JSON.parse(localStorage.getItem('denge-budget-alert-state-v1')||'{}')||{}}catch(_){}
