@@ -512,6 +512,7 @@ window.__dengeCloudBridge={
   next.goals=Array.isArray(next.goals)?next.goals:[];
   next.recurring=Array.isArray(next.recurring)?next.recurring:[];
   next.reminders=Array.isArray(next.reminders)?next.reminders:[];
+  next.netWorthHistory=Array.isArray(next.netWorthHistory)?next.netWorthHistory:[];
   next.accounts=Array.isArray(next.accounts)?next.accounts:cloneDengeData(initial.accounts);
   next.categories=next.categories||cloneDengeData(initial.categories);
   next.budgets=next.budgets||{};
@@ -640,7 +641,7 @@ function sanitizeDengeData(src){
    if(!accounts.some(x=>x.name===name))accounts.push({id:a.id||Date.now()+Math.random(),name,openingBalance:Number(a.openingBalance)||0,balance:0});
  });
  ['Nakit','Banka','Kredi Kartı'].forEach((name,i)=>{if(!accounts.some(a=>a.name===name))accounts.splice(i,0,{id:i+1,name,openingBalance:0,balance:0});});
- return {transactions:tx,accounts,categories:{income:Array.isArray(src.categories?.income)?src.categories.income:(sourceIsFix?['Maaş','Ek Gelir','Yatırım','Freelance','Diğer']:[]),expense:Array.isArray(src.categories?.expense)?src.categories.expense:(sourceIsFix?['Market','Fatura','Ulaşım','Yemek','Alışveriş','Eğlence','Sağlık','Diğer']:[])},budgets:src.budgets||{},settings:Object.assign(baseSettings,src.settings||{}),debts:Array.isArray(src.debts)?src.debts:[],goals:Array.isArray(src.goals)?src.goals:[],recurring:Array.isArray(src.recurring)?src.recurring:[],reminders:Array.isArray(src.reminders)?src.reminders:[]};
+ return {transactions:tx,accounts,categories:{income:Array.isArray(src.categories?.income)?src.categories.income:(sourceIsFix?['Maaş','Ek Gelir','Yatırım','Freelance','Diğer']:[]),expense:Array.isArray(src.categories?.expense)?src.categories.expense:(sourceIsFix?['Market','Fatura','Ulaşım','Yemek','Alışveriş','Eğlence','Sağlık','Diğer']:[])},budgets:src.budgets||{},settings:Object.assign(baseSettings,src.settings||{}),debts:Array.isArray(src.debts)?src.debts:[],goals:Array.isArray(src.goals)?src.goals:[],recurring:Array.isArray(src.recurring)?src.recurring:[],reminders:Array.isArray(src.reminders)?src.reminders:[],netWorthHistory:Array.isArray(src.netWorthHistory)?src.netWorthHistory:[]};
 }
 function __applyImportedBackup(raw){try{
  const imported=typeof raw==='string'?JSON.parse(raw):raw;
