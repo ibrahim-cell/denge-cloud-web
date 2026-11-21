@@ -11,7 +11,7 @@
 
 ## Kaynak dosyaları
 
-Bu klasördeki src/main ağacını mevcut Android Studio projesinin app/src/main klasörüne kopyala. Kotlin kaynak paketi com.denge.widget şeklindedir; uygulamanın applicationId değerinden bağımsız kullanılabilir.
+Bu klasördeki src/main ağacını mevcut Android Studio projesinin app/src/main klasörüne kopyala. Kotlin kaynak paketi com.denge.widget şeklindedir; uygulamanın applicationId değerinden bağımsız kullanılabilir. Gradle namespace değerin com.denge.widget değilse Kotlin dosyasına kendi namespace'in için import <uygulama.namespace>.R satırını ekle.
 
 ## Manifest
 
