@@ -1264,7 +1264,7 @@ function sendFinanceNotification(title,body,tag){
 function syncNativeFinanceSchedule(){
  if(!isNativeAndroidBridge()||typeof AndroidBridge.syncFinanceReminderSchedule!=='function')return;
  const enabled=!!(data.settings.notifications&&notificationPermissionGranted());
- const dateNow=new Date(),budgetMonthKey=dateNow.getFullYear()+'-'+String(dateNow.getMonth()+1).padStart(2,'0'),spentByCategory={};
+ const dateNow=new Date(),budgetMonthKey=dateNow.getFullYear()+'-'+String(dateNow.getMonth()+1).padStart(2,'0'),spentByCategory={},fmtMoney=value=>new Intl.NumberFormat('tr-TR',{style:'currency',currency:data.settings.currency||'TRY'}).format(Number(value)||0);
  (data.transactions||[]).forEach(t=>{if(String(t.date||'').slice(0,7)!==budgetMonthKey||t.type==='transfer'||t.type==='debt')return;const amount=Number(t.amount)||0;if(amount<0){const category=String(t.category||'Diğer');spentByCategory[category]=(spentByCategory[category]||0)+Math.abs(amount)}});
  const payload={
   enabled,
@@ -1274,9 +1274,9 @@ function syncNativeFinanceSchedule(){
   budgetMonth:budgetMonthKey,
   budgetAlert80:data.settings.budgetAlert80!==false,
   budgetAlert100:data.settings.budgetAlert100!==false,
-  budgets:Object.entries(data.budgets||{}).map(([category,limit])=>({category,limit:Number(limit)||0,spent:Number(spentByCategory[category]||0),spentLabel:new Intl.NumberFormat('tr-TR',{style:'currency',currency:data.settings.currency||'TRY'}).format(Number(spentByCategory[category]||0)),limitLabel:new Intl.NumberFormat('tr-TR',{style:'currency',currency:data.settings.currency||'TRY'}).format(Number(limit)||0)})),
-  reminders:(data.reminders||[]).filter(r=>r&&r.active!==false).map(r=>({id:String(r.id),title:String(r.title||'Ödeme hatırlatması'),date:String(r.date||''),amount:Number(r.amount)||0,amountLabel:Number(r.amount)>0?money(r.amount):'',daysBefore:Number(r.daysBefore)||0,time:String(r.time||'09:00'),repeatMonthly:!!r.repeatMonthly,note:String(r.note||'')})),
-  recurring:(data.recurring||[]).filter(r=>r&&r.active!==false).map(r=>({id:String(r.id),title:String(r.name||'Tekrarlayan ödeme'),amount:Number(r.amount)||0,amountLabel:money(Number(r.amount)||0),type:String(r.type||'expense'),dayOfMonth:Math.min(28,Math.max(1,Number(r.dayOfMonth||1)))}))
+  budgets:Object.entries(data.budgets||{}).map(([category,limit])=>({category,limit:Number(limit)||0,spent:Number(spentByCategory[category]||0),spentLabel:fmtMoney(spentByCategory[category]||0),limitLabel:fmtMoney(limit)})),
+  reminders:(data.reminders||[]).filter(r=>r&&r.active!==false).map(r=>({id:String(r.id),title:String(r.title||'Ödeme hatırlatması'),date:String(r.date||''),amount:Number(r.amount)||0,amountLabel:Number(r.amount)>0?fmtMoney(r.amount):'',daysBefore:Number(r.daysBefore)||0,time:String(r.time||'09:00'),repeatMonthly:!!r.repeatMonthly,note:String(r.note||'')})),
+  recurring:(data.recurring||[]).filter(r=>r&&r.active!==false).map(r=>({id:String(r.id),title:String(r.name||'Tekrarlayan ödeme'),amount:Number(r.amount)||0,amountLabel:fmtMoney(r.amount),type:String(r.type||'expense'),dayOfMonth:Math.min(28,Math.max(1,Number(r.dayOfMonth||1)))}))
  };
  try{AndroidBridge.syncFinanceReminderSchedule(JSON.stringify(payload))}catch(e){console.warn('Android hatırlatma takvimi aktarılamadı:',e)}
 }
