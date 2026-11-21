@@ -1300,7 +1300,7 @@ function checkBudgetThresholdAlerts(){
     changed=changed||sentNow;
    }
   }else if(pct>=80&&data.settings.budgetAlert80!==false&&!sent[keyBase+'80']){
-   const sentNow=sendFinanceNotification('Bütçe limitine yaklaşıyor: '+category,money(spent[category]||0)+' / '+money(limit)+' harcandı.','budget-'+month+'-'+category+'-80');
+   const sentNow=sendFinanceNotification('Bütçe limitine yaklaşıyor: '+category,new Intl.NumberFormat('tr-TR',{style:'currency',currency:data.settings.currency||'TRY'}).format(spent[category]||0)+' / '+new Intl.NumberFormat('tr-TR',{style:'currency',currency:data.settings.currency||'TRY'}).format(limit)+' harcandı.','budget-'+month+'-'+category+'-80');
    if(sentNow)sent[keyBase+'80']=true;
    changed=changed||sentNow;
   }
