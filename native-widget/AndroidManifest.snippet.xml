@@ -1,0 +1,12 @@
+<!-- Add this receiver inside the existing application element. -->
+<receiver
+    android:name="com.denge.widget.DengeHomeWidgetProvider"
+    android:exported="true"
+    android:label="Denge Finans Widget'ı">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/denge_home_widget_info" />
+</receiver>
