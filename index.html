@@ -454,7 +454,7 @@
 <script>
 (function(){
 const KEY='denge-v3';
-const initial={transactions:[],accounts:[{id:1,name:'Nakit',balance:0},{id:2,name:'Banka',balance:0},{id:3,name:'Kredi Kartı',balance:0}],categories:{income:['Maaş','Ek Gelir','Yatırım','Freelance','Diğer'],expense:['Market','Fatura','Ulaşım','Yemek','Alışveriş','Eğlence','Sağlık','Diğer']},budgets:{},settings:{theme:'Açık',notifications:true,currency:'TRY',security:false,pin:'',profileName:'',profilePhoto:'',language:'tr',recurringReminders:true,recurringReminderDays:1,recurringReminderTime:'09:00',budgetAlert80:true,budgetAlert100:true},debts:[],goals:[],recurring:[],reminders:[]};
+const initial={netWorthHistory:[],transactions:[],accounts:[{id:1,name:'Nakit',balance:0},{id:2,name:'Banka',balance:0},{id:3,name:'Kredi Kartı',balance:0}],categories:{income:['Maaş','Ek Gelir','Yatırım','Freelance','Diğer'],expense:['Market','Fatura','Ulaşım','Yemek','Alışveriş','Eğlence','Sağlık','Diğer']},budgets:{},settings:{theme:'Açık',notifications:true,currency:'TRY',security:false,pin:'',profileName:'',profilePhoto:'',language:'tr',recurringReminders:true,recurringReminderDays:1,recurringReminderTime:'09:00',budgetAlert80:true,budgetAlert100:true},debts:[],goals:[],recurring:[],reminders:[]};
 let data;try{let stored=localStorage.getItem(KEY);if(!stored&&window.AndroidBridge&&typeof AndroidBridge.consumeLegacyData==='function'){const legacy=AndroidBridge.consumeLegacyData();if(legacy){try{JSON.parse(legacy);localStorage.setItem(KEY,legacy);stored=legacy;if(typeof AndroidBridge.acknowledgeLegacyData==='function')AndroidBridge.acknowledgeLegacyData()}catch(_){}}}data=stored?JSON.parse(stored):initial}catch(e){data=initial}const legacyCloudLanguage=data.settings&&data.settings['sync'+'Language'];const hasAppLanguage=!!(data.settings&&data.settings.language);data.settings=Object.assign({theme:'Açık',notifications:true,currency:'TRY',security:false,pin:'',profileName:'',profilePhoto:'',language:'tr',recurringReminders:true,recurringReminderDays:1,recurringReminderTime:'09:00',budgetAlert80:true,budgetAlert100:true},data.settings||{});if(legacyCloudLanguage&&!hasAppLanguage)data.settings.language=legacyCloudLanguage;delete data.settings['sync'+'Language'];data.categories=data.categories||{income:[],expense:[]};data.categoryIcons=data.categoryIcons||{};
 // Geçersiz işlem tiplerini ve eski migration meta verisini temizle; borç/alacak korunur.
 if(Array.isArray(data.transactions)){data.transactions=data.transactions.filter(t=>t&&(['income','expense','transfer','debt'].includes(t.type)));}
@@ -462,6 +462,7 @@ if(!Array.isArray(data.debts)) data.debts=[];
 if(!Array.isArray(data.recurring)) data.recurring=[];
 if(!Array.isArray(data.goals)) data.goals=[];
 if(!Array.isArray(data.reminders)) data.reminders=[];
+if(!Array.isArray(data.netWorthHistory)) data.netWorthHistory=[];
 delete data.migration;
 data.accounts=(data.accounts||[]).filter(a=>String(a?.name||'').trim().toLowerCase()!=='hesap belirtilmemiş');
 (data.accounts||[]).forEach(a=>{if(a.openingBalance===undefined)a.openingBalance=0;if(a.balance===undefined)a.balance=0;});
@@ -492,7 +493,7 @@ function getCategoryIconKey(name){
 }
 function getCategoryIcon(name){return sicon(getCategoryIconKey(name))}
 function icoIcon(k){return getCategoryIcon(k);} // legacy helper
-function save(){localStorage.setItem(KEY,JSON.stringify(data));try{if(window.DengeCloud&&typeof window.DengeCloud.localSave==='function')window.DengeCloud.localSave(data)}catch(e){console.warn('Denge Cloud kuyruğu güncellenemedi:',e)}try{syncNativeFinanceSchedule();checkBudgetThresholdAlerts()}catch(e){console.warn('Denge bildirim takvimi güncellenemedi:',e)}}
+function save(){if(typeof recordNetWorthSnapshot==='function')recordNetWorthSnapshot();localStorage.setItem(KEY,JSON.stringify(data));try{if(window.DengeCloud&&typeof window.DengeCloud.localSave==='function')window.DengeCloud.localSave(data)}catch(e){console.warn('Denge Cloud kuyruğu güncellenemedi:',e)}try{syncNativeFinanceSchedule();checkBudgetThresholdAlerts()}catch(e){console.warn('Denge bildirim takvimi güncellenemedi:',e)}}
 function cloneDengeData(value){return JSON.parse(JSON.stringify(value==null?{}:value))}
 window.__dengeCloudBridge={
  getData:()=>data,
@@ -588,6 +589,17 @@ function computedAccountBalances(){
  return out;
 }
 function totalRealAccountBalance(){const balances=computedAccountBalances();return (data.accounts||[]).reduce((sum,a)=>isRealAccount(a.name)?sum+Number(balances[a.name]||0):sum,0)}
+function recordNetWorthSnapshot(){
+ if(!data||!Array.isArray(data.accounts))return;
+ data.netWorthHistory=Array.isArray(data.netWorthHistory)?data.netWorthHistory:[];
+ const now=new Date(),date=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+ const value=Number(totalRealAccountBalance())||0;
+ const last=data.netWorthHistory[data.netWorthHistory.length-1];
+ if(last&&last.date===date){last.value=value;last.updatedAt=now.toISOString();return}
+ data.netWorthHistory.push({date,value,updatedAt:now.toISOString()});
+ data.netWorthHistory.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+ if(data.netWorthHistory.length>730)data.netWorthHistory=data.netWorthHistory.slice(-730);
+}
 
 function sanitizeDengeData(src){
  const baseSettings={theme:'Açık',notifications:true,currency:'TRY',security:false,pin:'',profileName:'',profilePhoto:'',language:'tr',recurringReminders:true,recurringReminderDays:1,recurringReminderTime:'09:00',budgetAlert80:true,budgetAlert100:true};
