@@ -10,9 +10,9 @@ import android.graphics.Color
 import android.os.Bundle
 import android.widget.RemoteViews
 import org.json.JSONObject
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 /** Native launcher widget. Finance values are pushed by the trusted WebView bridge. */
 class DengeHomeWidgetProvider : AppWidgetProvider() {
@@ -100,8 +100,10 @@ class DengeHomeWidgetProvider : AppWidgetProvider() {
         private fun updatedLabel(raw: String?): String {
             if (raw.isNullOrBlank()) return "Uygulamayı açarak güncelle"
             return try {
-                val time = Instant.parse(raw).atZone(ZoneId.systemDefault())
-                    .format(DateTimeFormatter.ofPattern("HH:mm"))
+                val parsed = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }.parse(raw) ?: return "Denge · Güncel"
+                val time = SimpleDateFormat("HH:mm", Locale("tr", "TR")).format(parsed)
                 "Son güncelleme · $time"
             } catch (_: Exception) {
                 "Denge · Güncel"
