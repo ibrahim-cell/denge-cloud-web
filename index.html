@@ -1292,9 +1292,9 @@ function checkBudgetThresholdAlerts(){
   const limit=Number(limitValue)||0;if(limit<=0)return;
   const pct=(spent[category]||0)/limit*100;
   const keyBase=month+'|'+category+'|';
-  if(pct>=100){
+  if(pct>=100&&data.settings.budgetAlert100!==false){
    if(data.settings.budgetAlert80!==false)sent[keyBase+'80']=true;
-   if(data.settings.budgetAlert100!==false&&!sent[keyBase+'100']){
+   if(!sent[keyBase+'100']){
     const sentNow=sendFinanceNotification('Bütçe aşıldı: '+category,money(spent[category]||0)+' / '+money(limit)+' harcandı.','budget-'+month+'-'+category+'-100');
     if(sentNow)sent[keyBase+'100']=true;
     changed=changed||sentNow;
