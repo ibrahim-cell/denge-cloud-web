@@ -1263,9 +1263,11 @@ function recurring(){
  const monthlyTotal=activeExpenses.reduce((sum,r)=>sum+(Number(r.amount)||0),0);
  const subscriptionCount=activeExpenses.filter(r=>r.recurringKind==='subscription').length;
  const fixedCount=activeExpenses.filter(r=>r.recurringKind==='fixed').length;
+ const subscriptionRecordsCount=records.filter(r=>r.recurringKind==='subscription').length;
+ const fixedRecordsCount=records.filter(r=>r.recurringKind==='fixed').length;
  const activeCount=records.filter(r=>r&&r.active!==false).length;
  const tabs=[['all','Tümü'],['subscription','Abonelikler'],['fixed','Sabit giderler'],['other','Diğer']];
- const counts={all:records.length,subscription:subscriptionCount,fixed:fixedCount,other:records.filter(r=>!['subscription','fixed'].includes(r.recurringKind)).length};
+ const counts={all:records.length,subscription:subscriptionRecordsCount,fixed:fixedRecordsCount,other:records.filter(r=>!['subscription','fixed'].includes(r.recurringKind)).length};
  const visible=records.filter(r=>recurringView==='all'||(recurringView==='other'?!['subscription','fixed'].includes(r.recurringKind):r.recurringKind===recurringView));
  const list=visible.length?visible.map(r=>{
    const amt=Number(r.amount)||0;
