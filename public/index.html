@@ -1281,7 +1281,7 @@ function recurring(){
  return header('Düzenli Ödemeler','settings')
   +'<div class="recurring-overview"><div class="recurring-overview-main"><small>Aylık tekrarlayan gider</small><strong>'+money(monthlyTotal)+'</strong><span>Yıllık tahmini: '+money(monthlyTotal*12)+'</span></div><div class="recurring-overview-stats"><div><b>'+activeCount+'</b><small>Aktif kayıt</small></div><div><b>'+subscriptionCount+'</b><small>Abonelik</small></div><div><b>'+fixedCount+'</b><small>Sabit gider</small></div></div></div>'
   +'<div class="recurring-toolbar"><div class="recurring-filters">'+tabsHtml+'</div><button type="button" class="primary" id="addRecurring">+ Ekle</button></div>'
-  +(records.some(r=>!r.recurringKind)?'<div class="recurring-classify-note">Önceden eklediğin tekrarlayan kayıtlar korunuyor. Abonelik veya sabit gider olarak ayırmak için Düzenle'den türünü seçebilirsin.</div>':'')
+  +(records.some(r=>!r.recurringKind)?'<div class="recurring-classify-note">Önceden eklediğin tekrarlayan kayıtlar korunuyor. Abonelik veya sabit gider olarak sınıflandırmak için kaydı düzenleyebilirsin.</div>':'')
   +list;
 }
 function reminderNextInfo(r){
