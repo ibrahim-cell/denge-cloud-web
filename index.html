@@ -22,6 +22,29 @@
 .budget-alert b{display:block;font-size:12px;margin-bottom:2px}
 .dark .budget-alert.warn{background:#3a3218;border-color:#6b5a20;color:#f0d48a}
 .dark .budget-alert.over{background:#3a1f24;border-color:#6b3038;color:#ff9aa5}
+.recurring-overview{display:flex;align-items:stretch;gap:12px;padding:15px;border-radius:20px;background:#f0edff;border:1px solid #e4dfff;margin-bottom:12px;color:#24213a}
+.recurring-overview-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.recurring-overview-main small,.recurring-overview-stats small{font-size:10px;color:#77738f}
+.recurring-overview-main strong{font-size:25px;line-height:1.2;font-weight:850}
+.recurring-overview-main span{font-size:10px;color:#77738f}
+.recurring-overview-stats{display:flex;flex-direction:column;justify-content:space-between;gap:5px;min-width:78px;border-left:1px solid #dcd6f4;padding-left:12px}
+.recurring-overview-stats div{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.recurring-overview-stats b{font-size:14px}
+.recurring-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.recurring-filters{display:flex;gap:5px;overflow-x:auto;flex:1;min-width:0;padding:2px 0;scrollbar-width:none}
+.recurring-filters::-webkit-scrollbar{display:none}
+.recurring-filter{white-space:nowrap;border:1px solid #e8e6f0;background:#fff;color:#77738f;border-radius:999px;padding:7px 9px;font-size:10px;font-weight:750}
+.recurring-filter span{opacity:.65;margin-left:2px}
+.recurring-filter.active{background:#6659df;border-color:#6659df;color:#fff}
+.recurring-toolbar>.primary{width:auto;white-space:nowrap;padding:9px 12px;flex:none}
+.recurring-classify-note{font-size:10px;line-height:1.45;color:#77738f;background:#f5f3fc;border:1px solid #e9e5f5;padding:9px 11px;border-radius:12px;margin:0 0 10px}
+.dark .recurring-overview{background:#1d1b31;border-color:#302c4d;color:#eef0fa}
+.dark .recurring-overview-main small,.dark .recurring-overview-stats small,.dark .recurring-overview-main span{color:#a8a3bd}
+.dark .recurring-overview-stats{border-color:#393550}
+.dark .recurring-filter{background:#181a27;border-color:#303345;color:#aeb4c5}
+.dark .recurring-filter.active{background:#6659df;border-color:#6659df;color:#fff}
+.dark .recurring-classify-note{background:#181a27;border-color:#303345;color:#aeb4c5}
+@media(max-width:360px){.recurring-overview{padding:12px;gap:8px}.recurring-overview-main strong{font-size:21px}.recurring-overview-stats{min-width:70px;padding-left:8px}.recurring-toolbar{align-items:stretch;flex-direction:column}.recurring-toolbar>.primary{width:100%}}
 .recurring-card{background:#fff;border:1px solid #eeedf4;border-radius:18px;padding:12px 13px;margin-bottom:8px;display:flex;align-items:center;gap:11px;box-shadow:0 6px 20px #27234b07}
 .recurring-card .rc-icon{width:36px;height:36px;border-radius:12px;background:#eeeaff;color:#6659df;display:grid;place-items:center;flex:none}.recurring-card .rc-icon svg{width:20px;height:20px;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .recurring-card .rc-main{flex:1;min-width:0}
@@ -473,6 +496,7 @@ save();
 const currentMonth=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
 try{processRecurring()}catch(e){}
 let page='home',hide=false,q='',filter='all',searchOpen=false,analysisMonth=currentMonth(),analysisMode='expense',budgetMonth=currentMonth();
+let recurringView='all';
 const money=n=>{const v=Number(n)||0;const hasFrac=Math.abs(v%1)>1e-9;return new Intl.NumberFormat('tr-TR',{style:'currency',currency:data?.settings?.currency||'TRY',minimumFractionDigits:hasFrac?2:0,maximumFractionDigits:2}).format(v)};
 window.__dengeWidgetReady=true;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -556,7 +580,7 @@ function processRecurring(){
     if(r&&r.active===false) return;
     const rDay=Math.min(28,Math.max(1,Number(r.dayOfMonth||1)));
     if(day<rDay) return;
-    const already=data.transactions.some(t=>t.recurringId===r.id&&String(t.date||'').slice(0,7)===ym);
+    const already=data.transactions.some(t=>String(t.recurringId)===String(r.id)&&String(t.date||'').slice(0,7)===ym);
     if(already) return;
     const id=Date.now()+Math.random();
     const amt=Number(r.amount)||0;
@@ -1234,15 +1258,30 @@ function recurringNextPaymentInfo(record){
 }
 function recurring(){
  data.recurring=Array.isArray(data.recurring)?data.recurring:[];
- const list=data.recurring.length?data.recurring.map(r=>{
+ const records=data.recurring;
+ const activeExpenses=records.filter(r=>r&&r.active!==false&&r.type!=='income');
+ const monthlyTotal=activeExpenses.reduce((sum,r)=>sum+(Number(r.amount)||0),0);
+ const subscriptionCount=activeExpenses.filter(r=>r.recurringKind==='subscription').length;
+ const fixedCount=activeExpenses.filter(r=>r.recurringKind==='fixed').length;
+ const subscriptionRecordsCount=records.filter(r=>r.recurringKind==='subscription').length;
+ const fixedRecordsCount=records.filter(r=>r.recurringKind==='fixed').length;
+ const activeCount=records.filter(r=>r&&r.active!==false).length;
+ const tabs=[['all','Tümü'],['subscription','Abonelikler'],['fixed','Sabit giderler'],['other','Diğer']];
+ const counts={all:records.length,subscription:subscriptionRecordsCount,fixed:fixedRecordsCount,other:records.filter(r=>!['subscription','fixed'].includes(r.recurringKind)).length};
+ const visible=records.filter(r=>recurringView==='all'||(recurringView==='other'?!['subscription','fixed'].includes(r.recurringKind):r.recurringKind===recurringView));
+ const list=visible.length?visible.map(r=>{
    const amt=Number(r.amount)||0;
    const cls=r.type==='income'?'income':'expense';
    const isActive=r.active!==false;
    const nextPayment=isActive?recurringNextPaymentInfo(r):null;
-   return '<div class="recurring-card '+(isActive?'':'recurring-paused')+'" data-recurring-id="'+esc(String(r.id))+'"><span class="rc-icon" aria-hidden="true">'+getCategoryIcon(r.category)+'</span><div class="rc-main"><b>'+esc(r.name||'İşlem')+' <span class="recurring-badge">Her ay</span></b><small>'+esc(r.category||'')+' · Ayın '+esc(String(r.dayOfMonth||1))+'. günü · '+esc(r.account||'')+'</small><span class="rc-status '+(isActive?'active':'paused')+'">'+(isActive?'Aktif':'Duraklatıldı')+'</span>'+(isActive?'<span class="rc-next"><b>Sonraki ödeme:</b> '+esc(nextPayment.dateLabel)+' <em>'+esc(nextPayment.countdown)+'</em></span>':'<span class="rc-next paused">Ödeme takvimi duraklatıldı</span>')+'</div><span class="rc-amt '+cls+'">'+(r.type==='income'?'+':'-')+money(Math.abs(amt))+'</span><div class="rc-actions"><button type="button" class="rc-action toggle" data-recurring-toggle="'+esc(String(r.id))+'" aria-label="'+(isActive?'Duraklat':'Etkinleştir')+'" title="'+(isActive?'Duraklat':'Etkinleştir')+'">'+(isActive?sicon('pause'):sicon('play'))+'</button><button type="button" class="rc-action edit" data-recurring-edit="'+esc(String(r.id))+'" aria-label="Düzenle" title="Düzenle">'+sicon('edit')+'</button><button type="button" class="rc-action delete" data-recurring-del="'+esc(String(r.id))+'" aria-label="Sil" title="Sil">'+sicon('trash')+'</button></div></div>';
- }).join(''):emptyState('calendar','Tekrarlayan işlem yok','Maaş, kira gibi her ay tekrarlayan işlemleri ekle; günü gelince otomatik kaydedilir.','Ekle','id="addRecurringEmpty"');
- return header('Tekrarlayan','settings')
-  +'<div style="margin-bottom:10px"><button type="button" class="primary" id="addRecurring" style="width:100%">+ Tekrarlayan Ekle</button></div>'
+   const kind=r.recurringKind==='subscription'?'Abonelik':r.recurringKind==='fixed'?'Sabit gider':'Diğer';
+   return '<div class="recurring-card '+(isActive?'':'recurring-paused')+'" data-recurring-id="'+esc(String(r.id))+'"><span class="rc-icon" aria-hidden="true">'+getCategoryIcon(r.category)+'</span><div class="rc-main"><b>'+esc(r.name||'İşlem')+' <span class="recurring-badge">'+esc(kind)+'</span></b><small>'+esc(r.category||'')+' · Her ayın '+esc(String(r.dayOfMonth||1))+'. günü · '+esc(r.account||'')+'</small><span class="rc-status '+(isActive?'active':'paused')+'">'+(isActive?'Aktif':'Duraklatıldı')+'</span>'+(isActive?'<span class="rc-next"><b>Sonraki ödeme:</b> '+esc(nextPayment.dateLabel)+' <em>'+esc(nextPayment.countdown)+'</em></span>':'<span class="rc-next paused">Ödeme takvimi duraklatıldı</span>')+'</div><span class="rc-amt '+cls+'">'+(r.type==='income'?'+':'-')+money(Math.abs(amt))+'</span><div class="rc-actions"><button type="button" class="rc-action toggle" data-recurring-toggle="'+esc(String(r.id))+'" aria-label="'+(isActive?'Duraklat':'Etkinleştir')+'" title="'+(isActive?'Duraklat':'Etkinleştir')+'">'+(isActive?sicon('pause'):sicon('play'))+'</button><button type="button" class="rc-action edit" data-recurring-edit="'+esc(String(r.id))+'" aria-label="Düzenle" title="Düzenle">'+sicon('edit')+'</button><button type="button" class="rc-action delete" data-recurring-del="'+esc(String(r.id))+'" aria-label="Sil" title="Sil">'+sicon('trash')+'</button></div></div>';
+ }).join(''):emptyState('calendar',records.length?'Bu grupta kayıt yok':'Tekrarlayan işlem yok',records.length?'Başka bir görünüm seçebilir veya yeni kayıt ekleyebilirsin.':'Maaş, kira ve abonelik gibi düzenli işlemlerini ekle; ödeme günü geldiğinde mevcut sistem otomatik kaydeder.',records.length?null:'Ekle',records.length?null:'id="addRecurringEmpty"');
+ const tabsHtml=tabs.map(([key,label])=>'<button type="button" class="recurring-filter '+(recurringView===key?'active':'')+'" data-recurring-view="'+key+'">'+label+' <span>'+counts[key]+'</span></button>').join('');
+ return header('Düzenli Ödemeler','settings')
+  +'<div class="recurring-overview"><div class="recurring-overview-main"><small>Aylık tekrarlayan gider</small><strong>'+money(monthlyTotal)+'</strong><span>Yıllık tahmini: '+money(monthlyTotal*12)+'</span></div><div class="recurring-overview-stats"><div><b>'+activeCount+'</b><small>Aktif kayıt</small></div><div><b>'+subscriptionCount+'</b><small>Abonelik</small></div><div><b>'+fixedCount+'</b><small>Sabit gider</small></div></div></div>'
+  +'<div class="recurring-toolbar"><div class="recurring-filters">'+tabsHtml+'</div><button type="button" class="primary" id="addRecurring">+ Ekle</button></div>'
+  +(records.some(r=>!r.recurringKind)?'<div class="recurring-classify-note">Önceden eklediğin tekrarlayan kayıtlar korunuyor. Abonelik veya sabit gider olarak sınıflandırmak için kaydı düzenleyebilirsin.</div>':'')
   +list;
 }
 function reminderNextInfo(r){
@@ -1662,9 +1701,10 @@ function showAddRecurring(existingRecord){
  const cats=[...(data.categories?.expense||[]),...(data.categories?.income||[])];
  const record=existingRecord||{};
  const escVal=v=>esc(String(v==null?'':v));
- const html='<div class="settings-modal" id="recurringModal"><div class="pin-modal-card" style="text-align:left;max-width:340px"><h3 style="margin-top:0">'+(editing?'Tekrarlayan İşlemi Düzenle':'Tekrarlayan İşlem')+'</h3>'
+ const html='<div class="settings-modal" id="recurringModal"><div class="pin-modal-card" style="text-align:left;max-width:340px"><h3 style="margin-top:0">'+(editing?'Tekrarlayan İşlemi Düzenle':'Tekrarlayan İşlem Ekle')+'</h3>'
   +'<label class="muted" style="font-size:11px">Tür</label><div class="debt-choice" style="margin-bottom:8px"><button type="button" data-rec-type="expense" class="'+(record.type==='income'?'':'active')+'">Gider</button><button type="button" data-rec-type="income" class="'+(record.type==='income'?'active':'')+'">Gelir</button></div>'
-  +'<label class="muted" style="font-size:11px">Ad</label><input id="recName" class="field" placeholder="Örn: Kira, Maaş" value="'+escVal(record.name)+'" style="width:100%;margin-bottom:8px">'
+  +'<label class="muted" style="font-size:11px">Ödeme grubu</label><select id="recKind" class="field" style="width:100%;margin-bottom:8px"><option value="other" '+(record.recurringKind==='other'||!record.recurringKind?'selected':'')+'>Diğer tekrarlayan işlem</option><option value="subscription" '+(record.recurringKind==='subscription'?'selected':'')+'>Abonelik (Netflix, Spotify vb.)</option><option value="fixed" '+(record.recurringKind==='fixed'?'selected':'')+'>Sabit gider (kira, fatura vb.)</option></select>'
+  +'<label class="muted" style="font-size:11px">Ad</label><input id="recName" class="field" placeholder="Örn: Netflix, Kira, Maaş" value="'+escVal(record.name)+'" style="width:100%;margin-bottom:8px">'
   +'<label class="muted" style="font-size:11px">Tutar</label><div class="amount-field" style="margin-bottom:8px"><span>₺</span><input id="recAmount" inputmode="decimal" placeholder="0" value="'+(record.amount!=null?escVal(record.amount):'')+'"></div>'
   +'<label class="muted" style="font-size:11px">Kategori</label><select id="recCat" class="field" style="width:100%;margin-bottom:8px">'+cats.map(c=>'<option value="'+esc(c)+'" '+(c===record.category?'selected':'')+'>'+esc(c)+'</option>').join('')+'</select>'
   +'<label class="muted" style="font-size:11px">Hesap</label><select id="recAccount" class="field" style="width:100%;margin-bottom:8px">'+accounts.map(a=>'<option value="'+esc(a.name)+'" '+(a.name===record.account?'selected':'')+'>'+esc(a.name)+'</option>').join('')+'</select>'
@@ -1673,10 +1713,13 @@ function showAddRecurring(existingRecord){
  document.body.insertAdjacentHTML('beforeend',html);
  const m=document.getElementById('recurringModal');
  let type=record.type==='income'?'income':'expense';
- document.querySelectorAll('[data-rec-type]').forEach(b=>b.onclick=()=>{type=b.dataset.recType;document.querySelectorAll('[data-rec-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active')});
+ const recKindSelect=document.getElementById('recKind');
+ if(recKindSelect)recKindSelect.disabled=type==='income';
+ document.querySelectorAll('[data-rec-type]').forEach(b=>b.onclick=()=>{type=b.dataset.recType;document.querySelectorAll('[data-rec-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(recKindSelect){recKindSelect.disabled=type==='income';if(type==='income')recKindSelect.value='other'}});
  document.getElementById('recCancel').onclick=()=>m.remove();
  document.getElementById('recSave').onclick=()=>{
    const name=document.getElementById('recName').value.trim();
+   const recurringKind=type==='income'?'other':(document.getElementById('recKind')?.value||'other');
    const amount=Number(String(document.getElementById('recAmount').value).replace(',','.'));
    const category=document.getElementById('recCat').value;
    const account=document.getElementById('recAccount').value;
@@ -1691,16 +1734,17 @@ function showAddRecurring(existingRecord){
      const targetIndex=data.recurring.findIndex(r=>String(r.id)===String(recurringId));
      const latest=targetIndex>=0?data.recurring[targetIndex]:null;
      const updated=Object.assign({},record,latest||{},{
-       id:recurringId,name,amount,type,category,account,dayOfMonth,
+       id:recurringId,name,amount,type,category,account,dayOfMonth,recurringKind,
        active:latest?latest.active!==false:record.active!==false
      });
      if(targetIndex>=0)data.recurring[targetIndex]=updated;
      else data.recurring.push(updated);
    }else{
-     data.recurring.push({id:'rec-'+Date.now(),name,amount,type,category,account,dayOfMonth,active:true});
+     data.recurring.push({id:'rec-'+Date.now(),name,amount,type,category,account,dayOfMonth,recurringKind,active:true});
    }
    save();m.remove();
    if(!editing){try{processRecurring()}catch(e){}}
+   recurringView=recurringKind;
    page='recurring';render();toast(editing?'Tekrarlayan işlem güncellendi.':'Tekrarlayan işlem eklendi.');
  };
  m.onclick=e=>{if(e.target===m)m.remove()};
@@ -1710,6 +1754,7 @@ function bind(){const budgetNotificationsToggle=document.getElementById('budgetN
  document.querySelectorAll('[data-reminder-toggle]').forEach(b=>b.onclick=()=>{const r=(data.reminders||[]).find(x=>String(x.id)===String(b.dataset.reminderToggle));if(!r)return;r.active=r.active===false;save();render(true);toast(r.active?'Hatırlatma etkinleştirildi.':'Hatırlatma duraklatıldı.')});
  document.querySelectorAll('[data-reminder-edit]').forEach(b=>b.onclick=()=>{const r=(data.reminders||[]).find(x=>String(x.id)===String(b.dataset.reminderEdit));if(r)showReminderEditor(r)});
  document.querySelectorAll('[data-reminder-del]').forEach(b=>b.onclick=()=>{const id=b.dataset.reminderDel,r=(data.reminders||[]).find(x=>String(x.id)===String(id));if(!r)return;const modal=document.createElement('div');modal.className='settings-modal';modal.innerHTML='<div class="pin-modal-card"><div class="pin-modal-icon">'+sicon('trash')+'</div><h3>Hatırlatmayı sil?</h3><p>'+esc(r.title||'Hatırlatma')+' kaydı silinecek.</p><div class="pin-actions"><button class="pin-cancel" id="remDeleteCancel">Vazgeç</button><button class="pin-primary" id="remDeleteOk">Sil</button></div></div>';document.body.appendChild(modal);modal.querySelector('#remDeleteCancel').onclick=()=>modal.remove();modal.querySelector('#remDeleteOk').onclick=()=>{data.reminders=(data.reminders||[]).filter(x=>String(x.id)!==String(id));save();modal.remove();render(true);toast('Hatırlatma silindi.')};modal.onclick=e=>{if(e.target===modal)modal.remove()}});
+ document.querySelectorAll('[data-recurring-view]').forEach(b=>b.onclick=()=>{recurringView=b.dataset.recurringView||'all';render(true)});
  const addRecurringBtn=document.getElementById('addRecurring')||document.getElementById('addRecurringEmpty');
  if(addRecurringBtn)addRecurringBtn.onclick=()=>showAddRecurring();
  document.querySelectorAll('[data-recurring-toggle]').forEach(b=>b.onclick=()=>{
