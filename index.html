@@ -1713,7 +1713,9 @@ function showAddRecurring(existingRecord){
  document.body.insertAdjacentHTML('beforeend',html);
  const m=document.getElementById('recurringModal');
  let type=record.type==='income'?'income':'expense';
- document.querySelectorAll('[data-rec-type]').forEach(b=>b.onclick=()=>{type=b.dataset.recType;document.querySelectorAll('[data-rec-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active')});
+ const recKindSelect=document.getElementById('recKind');
+ if(recKindSelect)recKindSelect.disabled=type==='income';
+ document.querySelectorAll('[data-rec-type]').forEach(b=>b.onclick=()=>{type=b.dataset.recType;document.querySelectorAll('[data-rec-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(recKindSelect){recKindSelect.disabled=type==='income';if(type==='income')recKindSelect.value='other'}});
  document.getElementById('recCancel').onclick=()=>m.remove();
  document.getElementById('recSave').onclick=()=>{
    const name=document.getElementById('recName').value.trim();
@@ -1742,6 +1744,7 @@ function showAddRecurring(existingRecord){
    }
    save();m.remove();
    if(!editing){try{processRecurring()}catch(e){}}
+   recurringView=recurringKind;
    page='recurring';render();toast(editing?'Tekrarlayan işlem güncellendi.':'Tekrarlayan işlem eklendi.');
  };
  m.onclick=e=>{if(e.target===m)m.remove()};
