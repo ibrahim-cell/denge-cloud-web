@@ -1569,11 +1569,18 @@ function render(force=false){applyTheme();if(!force&&page==='add'&&document.quer
 // Narrow entry point for native home-widget quick actions. Keep page/render
 // private inside this IIFE while exposing only the validated action selector.
 window.__dengeHandleWidgetAction = function(action) {
- if(action!=='income' && action!=='expense') return false;
- window.homeAddType=action;
- page='add';
+ if(action==='settings') {
+  page='settings';
+ } else if(action==='income' || action==='expense') {
+  window.homeAddType=action;
+  page='add';
+ } else {
+  return false;
+ }
  render(true);
- return page==='add' && !!document.querySelector('#app .add-page');
+ return action==='settings'
+  ? page==='settings' && !!document.querySelector('#app .setting-group')
+  : page==='add' && !!document.querySelector('#app .add-page');
 };
 
 window.__dengeSystemThemeChanged=()=>{if(data.settings.theme==='Sistem'){applyTheme();render()}};if(window.matchMedia){const mq=window.matchMedia('(prefers-color-scheme: dark)');const onSystemThemeChange=()=>{if(data.settings.theme==='Sistem')window.__dengeSystemThemeChanged()};if(mq.addEventListener)mq.addEventListener('change',onSystemThemeChange);else if(mq.addListener)mq.addListener(onSystemThemeChange)}
