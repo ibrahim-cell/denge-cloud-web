@@ -1566,6 +1566,16 @@ function applyAppLanguage(){
 }
 
 function render(force=false){applyTheme();if(!force&&page==='add'&&document.querySelector('#app .add-page'))return;let content=page==='home'?home():page==='transactions'?transactions():page==='add'?add():page==='analysis'?analysis():page==='networth'?networth():page==='profile'?profile():page==='about'?about():page==='categories'?categories():page==='accounts'?accounts():page==='budget'?budget():page==='recurring'?recurring():page==='reminders'?reminders():settings();document.getElementById('app').innerHTML='<div class="app '+(page!=='add'?'has-quick-add':'')+'"><main class="shell">'+content+'</main>'+(page!=='add'?bottom()+quickAddFab():'')+'</div>';applyAppLanguage();bind();bindCloudUI();syncNativeHomeWidget();}
+// Narrow entry point for native home-widget quick actions. Keep page/render
+// private inside this IIFE while exposing only the validated action selector.
+window.__dengeHandleWidgetAction = function(action) {
+ if(action!=='income' && action!=='expense') return false;
+ window.homeAddType=action;
+ page='add';
+ render(true);
+ return page==='add' && !!document.querySelector('#app .add-page');
+};
+
 window.__dengeSystemThemeChanged=()=>{if(data.settings.theme==='Sistem'){applyTheme();render()}};if(window.matchMedia){const mq=window.matchMedia('(prefers-color-scheme: dark)');const onSystemThemeChange=()=>{if(data.settings.theme==='Sistem')window.__dengeSystemThemeChanged()};if(mq.addEventListener)mq.addEventListener('change',onSystemThemeChange);else if(mq.addListener)mq.addListener(onSystemThemeChange)}
 function toast(message,type='success'){
  const prior=document.getElementById('dengeToast');if(prior)prior.remove();
