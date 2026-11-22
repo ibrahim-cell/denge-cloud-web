@@ -586,16 +586,31 @@ function emptyState(icon,title,desc,ctaLabel,ctaAttr){
 function processRecurring(){
   data.recurring=Array.isArray(data.recurring)?data.recurring:[];
   if(!data.recurring.length) return;
+  const now=new Date();
   const ym=currentMonth();
-  const day=new Date().getDate();
+  const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   let changed=false;
   data.recurring.forEach(r=>{
-    if(r&&r.active===false) return;
+    if(!r||r.active===false||r.id==null) return;
     const rDay=Math.min(28,Math.max(1,Number(r.dayOfMonth||1)));
-    if(day<rDay) return;
-    const already=data.transactions.some(t=>String(t.recurringId)===String(r.id)&&String(t.date||'').slice(0,7)===ym);
-    if(already) return;
-    const id=Date.now()+Math.random();
+    const dueDate=new Date(now.getFullYear(),now.getMonth(),rDay);
+    if(!Array.isArray(r.generatedMonths)){r.generatedMonths=[];changed=true;}
+    // One-time migration: old recurring entries without a creation date must not
+    // be charged retroactively for a due date that has already passed this month.
+    if(!r.createdAt){
+      r.createdAt=now.toISOString();
+      if(dueDate<today&&!r.generatedMonths.includes(ym))r.generatedMonths.push(ym);
+      changed=true;
+    }
+    const createdAt=new Date(r.createdAt);
+    const createdDate=Number.isNaN(createdAt.getTime())?today:new Date(createdAt.getFullYear(),createdAt.getMonth(),createdAt.getDate());
+    if(today<dueDate||createdDate>dueDate)return;
+    if(r.generatedMonths.includes(ym))return;
+    const existing=data.transactions.some(t=>String(t.recurringId)===String(r.id)&&String(t.date||'').slice(0,7)===ym);
+    if(existing){r.generatedMonths.push(ym);changed=true;return;}
+    const id='recurring-'+encodeURIComponent(String(r.id))+'-'+ym;
+    const deleted=data._denge_deleted&&data._denge_deleted.transactions;
+    if(deleted&&Object.prototype.hasOwnProperty.call(deleted,String(id))){r.generatedMonths.push(ym);changed=true;return;}
     const amt=Number(r.amount)||0;
     const signed=r.type==='income'?Math.abs(amt):-Math.abs(amt);
     const date=ym+'-'+String(rDay).padStart(2,'0');
@@ -607,6 +622,7 @@ function processRecurring(){
       account:r.account||((data.accounts||[])[0]||{}).name||'',
       recurringId:r.id
     });
+    r.generatedMonths.push(ym);
     changed=true;
   });
   if(changed) save();
@@ -1666,6 +1682,21 @@ function showTransactionDetail(id){
 }
 async function deleteTransactionAndSync(id){
  const before=(data.transactions||[]).length;
+ const deletedTx=(data.transactions||[]).find(item=>String(item.id)===String(id));
+ if(!deletedTx)return;
+ // Deleting an automatically generated recurring transaction is a deliberate
+ // choice for this occurrence; persist that fact so it is never recreated.
+ if(deletedTx.recurringId!=null){
+  const month=String(deletedTx.date||'').slice(0,7);
+  const recurring=(data.recurring||[]).find(r=>String(r.id)===String(deletedTx.recurringId));
+  if(recurring&&/^\\d{4}-\\d{2}$/.test(month)){
+   if(!Array.isArray(recurring.generatedMonths))recurring.generatedMonths=[];
+   if(!recurring.generatedMonths.includes(month))recurring.generatedMonths.push(month);
+  }
+ }
+ data._denge_deleted=data._denge_deleted&&typeof data._denge_deleted==='object'?data._denge_deleted:{};
+ data._denge_deleted.transactions=data._denge_deleted.transactions&&typeof data._denge_deleted.transactions==='object'?data._denge_deleted.transactions:{};
+ data._denge_deleted.transactions[String(id)]=new Date().toISOString();
  data.transactions=(data.transactions||[]).filter(item=>String(item.id)!==String(id));
  if(data.transactions.length===before)return;
  save();
@@ -1760,7 +1791,7 @@ function showAddRecurring(existingRecord){
      if(targetIndex>=0)data.recurring[targetIndex]=updated;
      else data.recurring.push(updated);
    }else{
-     data.recurring.push({id:'rec-'+Date.now(),name,amount,type,category,account,dayOfMonth,recurringKind,active:true});
+     data.recurring.push({id:'rec-'+Date.now(),name,amount,type,category,account,dayOfMonth,recurringKind,active:true,createdAt:new Date().toISOString(),generatedMonths:[]});
    }
    save();m.remove();
    if(!editing){try{processRecurring()}catch(e){}}
