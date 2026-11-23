@@ -800,6 +800,22 @@ function findDebtOriginTransaction(debt){
  });
  return matches.length===1?matches[0]:null;
 }
+function findDebtForTransaction(tx){
+ if(!tx||tx.type!=='debt')return null;
+ if(tx.debtId){
+  const direct=(data.debts||[]).find(d=>String(d.id)===String(tx.debtId));
+  if(direct)return direct;
+ }
+ const byOrigin=(data.debts||[]).find(d=>{const origin=findDebtOriginTransaction(d);return origin&&String(origin.id)===String(tx.id)});
+ if(byOrigin)return byOrigin;
+ if(isDebtPaymentTransaction(tx)){
+  return (data.debts||[]).find(d=>
+   String(d.person||'').trim().toLocaleLowerCase('tr-TR')===String(tx.person||'').trim().toLocaleLowerCase('tr-TR')&&
+   (d.payments||[]).some(p=>String(p.date||'')===String(tx.date||'')&&Math.abs(Number(p.amount)||0)===Math.abs(Number(tx.amount)||0))
+  )||null;
+ }
+ return null;
+}
 function pruneDeletedDebtOrigins(){
  const deleted=data._denge_deleted&&data._denge_deleted.transactions||{};
  if(!Array.isArray(data.debts))return;
@@ -2155,9 +2171,23 @@ function showInputCard(title,description,placeholder,callback){const html='<div 
 const appAlert=(message,title='Bilgi')=>showAlertCard(message,title,message.toLowerCase().includes('geçerli')||message.toLowerCase().includes('geçersiz')?'error':'info');
 
 function findTx(id){return data.transactions.find(t=>String(t.id)===String(id))}
+function showDebtTransactionDetail(id,tx,debt){
+ const payment=isDebtPaymentTransaction(tx);
+ const modal=document.createElement('div');modal.className='tx-detail-modal';modal.id='txDetailModal';
+ const person=esc(tx.person||debt&&debt.person||'Kişi');
+ modal.innerHTML='<div class="tx-modal-card"><div class="tx-modal-head"><span class="tx-modal-icon">'+sicon('debt')+'</span><div><h3>'+esc(tx.name||'Borç / Alacak hareketi')+'</h3><p>'+person+' · '+esc(tx.date||'')+' · '+esc(tx.time||'')+'</p></div><button class="tx-close" id="txDetailClose">×</button></div><div class="tx-detail-amount '+(Number(tx.amount)>=0?'income':'expense')+'">'+(Number(tx.amount)>=0?'+':'−')+money(Math.abs(Number(tx.amount)||0))+'</div><div class="tx-detail-grid"><div class="tx-detail-cell"><small>Hareket</small><b>'+(payment?(debtDirectionOf(debt)==='receivable'?'Tahsilat':'Geri ödeme'):(debtDirectionOf(debt)==='receivable'?'Borç verdin':'Borç aldın'))+'</b></div><div class="tx-detail-cell"><small>Hesap</small><b>'+esc(tx.account||'—')+'</b></div><div class="tx-detail-cell"><small>Bağlı kayıt</small><b>'+person+'</b></div><div class="tx-detail-cell"><small>Tarih</small><b>'+esc(tx.date||'—')+'</b></div></div><div class="tx-modal-actions"><button class="tx-edit-btn" id="txEditBtn">'+sicon('edit')+' '+(payment?'Ödemeyi düzenle':'Borç kaydını düzenle')+'</button><button class="tx-delete-btn" id="txDeleteBtn">'+sicon('trash')+' '+(payment?'Hareketi sil':'Borç kaydını ve hareketlerini sil')+'</button></div></div>';
+ document.body.appendChild(modal);
+ const close=()=>modal.remove();modal.querySelector('#txDetailClose').onclick=close;modal.onclick=e=>{if(e.target===modal)close()};
+ modal.querySelector('#txEditBtn').onclick=()=>{close();if(payment){const paymentId=tx.debtPaymentId||(debt.payments||[]).find(p=>String(p.date||'')===String(tx.date||'')&&Math.abs(Number(p.amount)||0)===Math.abs(Number(tx.amount)||0))?.id;if(paymentId)showDebtPaymentEditModal(debt.id,paymentId)}else showDebtRecordModal(debt.id)};
+ modal.querySelector('#txDeleteBtn').onclick=()=>{close();showTransactionDelete(id)};
+}
 function showTransactionDetail(id){
  const t=findTx(id); if(!t)return;
- const html='<div class="tx-detail-modal" id="txDetailModal"><div class="tx-modal-card"><div class="tx-modal-head"><span class="tx-modal-icon">'+sicon(t.amount>=0?'wallet':'tag')+'</span><div><h3>'+esc(t.name||t.category)+'</h3><p>'+esc(t.category||'')+' · '+esc(t.date||'')+' · '+esc(t.time||'')+'</p></div><button class="tx-close" id="txDetailClose">×</button></div><div class="tx-detail-amount '+(t.amount>=0?'income':'expense')+'">'+(t.amount>=0?'+':'-')+money(Math.abs(t.amount))+'</div><div class="tx-detail-grid"><div class="tx-detail-cell"><small>Kategori</small><b>'+esc(t.category||'—')+'</b></div><div class="tx-detail-cell"><small>Hesap</small><b>'+esc(t.account||'—')+'</b></div><div class="tx-detail-cell"><small>Tarih</small><b>'+esc(t.date||'—')+'</b></div><div class="tx-detail-cell"><small>Saat</small><b>'+esc(t.time||'—')+'</b></div></div><div class="tx-modal-actions"><button class="tx-edit-btn" id="txEditBtn">'+sicon('edit')+' Düzenle</button><button class="tx-delete-btn" id="txDeleteBtn">'+sicon('trash')+' Sil</button></div></div></div>';
+ if(t.type==='debt'){
+  const debt=findDebtForTransaction(t);
+  if(debt){showDebtTransactionDetail(id,t,debt);return}
+ }
+ const html='<div class="tx-detail-modal" id="txDetailModal"><div class="tx-modal-card"><div class="tx-modal-head"><span class="tx-modal-icon">'+sicon(t.amount>=0?'wallet':'tag')+'</span><div><h3>'+esc(t.name||t.category)+'</h3><p>'+esc(t.category||'')+' · '+esc(t.date||'')+' · '+esc(t.time||'')+'</p></div><button class="tx-close" id="txDetailClose">×</button></div><div class="tx-detail-amount '+(t.amount>=0?'income':'expense')+'">'+(t.amount>=0?'+':'-')+money(Math.abs(Number(t.amount)||0))+'</div><div class="tx-detail-grid"><div class="tx-detail-cell"><small>Kategori</small><b>'+esc(t.category||'—')+'</b></div><div class="tx-detail-cell"><small>Hesap</small><b>'+esc(t.account||'—')+'</b></div><div class="tx-detail-cell"><small>Tarih</small><b>'+esc(t.date||'—')+'</b></div><div class="tx-detail-cell"><small>Saat</small><b>'+esc(t.time||'—')+'</b></div></div><div class="tx-modal-actions"><button class="tx-edit-btn" id="txEditBtn">'+sicon('edit')+' Düzenle</button><button class="tx-delete-btn" id="txDeleteBtn">'+sicon('trash')+' Sil</button></div></div></div>';
  document.body.insertAdjacentHTML('beforeend',html);
  const m=document.getElementById('txDetailModal'); document.getElementById('txDetailClose').onclick=()=>m.remove();
  m.onclick=e=>{if(e.target===m)m.remove()};
@@ -2167,8 +2197,7 @@ function showTransactionDetail(id){
 async function deleteTransactionAndSync(id){
  const deletedTx=(data.transactions||[]).find(item=>String(item.id)===String(id));
  if(!deletedTx)return;
- const debtId=deletedTx.type==='debt'?(deletedTx.debtId||null):null;
- const debt=debtId?(data.debts||[]).find(d=>String(d.id)===String(debtId)):null;
+ const debt=deletedTx.type==='debt'?findDebtForTransaction(deletedTx):null;
  if(debt){
   const isOrigin=String(debt.openingTransactionId||'')===String(deletedTx.id)||!isDebtPaymentTransaction(deletedTx);
   if(isOrigin){
