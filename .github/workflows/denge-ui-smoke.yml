@@ -152,7 +152,14 @@ jobs:
               await page.locator('#debtRecordPerson').fill('Smoke Borç Kişisi');
               await page.locator('#debtRecordAmount').fill('500');
               await page.locator('#debtRecordRate').fill('1');
-              await page.locator('#debtRecordDue').fill(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10));
+              // The due date now uses Denge's in-app calendar, not a visible native input.
+              const debtDueDate = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+              await page.locator('[data-styled-date="debtRecordDue"]').click();
+              await page.locator('.cal-modal [data-iso="' + debtDueDate + '"]').click();
+              await page.locator('#calOk').click();
+              if (await page.locator('#debtRecordDue').inputValue() !== debtDueDate) {
+                throw new Error(target.name + ': themed due-date picker did not apply the selected date');
+              }
               await page.locator('#debtRecordSave').click();
               await page.getByText('Smoke Borç Kişisi', { exact: true }).waitFor({ timeout: 5000 });
 
