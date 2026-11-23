@@ -811,10 +811,12 @@ function findDebtForTransaction(tx){
  const byOrigin=(data.debts||[]).find(d=>{const origin=findDebtOriginTransaction(d);return origin&&String(origin.id)===String(tx.id)});
  if(byOrigin)return byOrigin;
  if(isDebtPaymentTransaction(tx)){
-  return (data.debts||[]).find(d=>
-   String(d.person||'').trim().toLocaleLowerCase('tr-TR')===String(tx.person||'').trim().toLocaleLowerCase('tr-TR')&&
-   (d.payments||[]).some(p=>String(p.date||'')===String(tx.date||'')&&Math.abs(Number(p.amount)||0)===Math.abs(Number(tx.amount)||0))
-  )||null;
+  const personMatches=(data.debts||[]).filter(d=>String(d.person||'').trim().toLocaleLowerCase('tr-TR')===String(tx.person||'').trim().toLocaleLowerCase('tr-TR'));
+  const exact=personMatches.filter(d=>(d.payments||[]).some(p=>String(p.date||'')===String(tx.date||'')&&Math.abs(Number(p.amount)||0)===Math.abs(Number(tx.amount)||0)));
+  if(exact.length===1)return exact[0];
+  const direction=tx.debtDirection||((String(tx.debtTypeLabel||'').toLocaleLowerCase('tr-TR').includes('tahsilat'))?'receivable':'payable');
+  const byDirection=personMatches.filter(d=>debtDirectionOf(d)===direction);
+  return byDirection.length===1?byDirection[0]:null;
  }
  return null;
 }
@@ -823,15 +825,16 @@ function pruneDeletedDebtOrigins(){
  if(!Array.isArray(data.debts))return;
  data.debts=data.debts.filter(debt=>{
   if(!debt)return false;
-  const candidates=debtOriginIds(debt);
+  const debtId=String(debt.id),candidates=debtOriginIds(debt);
   const deletedOrigin=candidates.some(id=>Object.prototype.hasOwnProperty.call(deleted,id));
+  if(deletedOrigin){
+   data.transactions=(data.transactions||[]).filter(tx=>String(tx.debtId||'')!==debtId&&!candidates.includes(String(tx.id)));
+   data.reminders=(data.reminders||[]).filter(reminder=>String(reminder.id)!=='debt-due-'+debtId);
+   return false;
+  }
   const origin=findDebtOriginTransaction(debt);
-  if(origin){debt.openingTransactionId=String(origin.id);return true}
-  if(!deletedOrigin)return true;
-  const debtId=String(debt.id);
-  data.transactions=(data.transactions||[]).filter(tx=>String(tx.debtId||'')!==debtId);
-  data.reminders=(data.reminders||[]).filter(reminder=>String(reminder.id)!=='debt-due-'+debtId);
-  return false;
+  if(origin){debt.openingTransactionId=String(origin.id);origin.debtId=debtId;origin.openingTransactionId=String(origin.id);return true}
+  return true;
  });
 }
 function processGoalContributions(){
@@ -1573,10 +1576,11 @@ function showDebtDeleteConfirm(debtId){
  document.body.appendChild(wrap);wrap.querySelector('#debtDeleteCancel').onclick=()=>wrap.remove();
  wrap.querySelector('#debtDeleteConfirm').onclick=async()=>{
   wrap.remove();
-  const linked=(data.transactions||[]).filter(t=>String(t.debtId||'')===String(debt.id));
+  const origin=findDebtOriginTransaction(debt),personKey=String(debt.person||'').trim().toLocaleLowerCase('tr-TR');
+  const linked=(data.transactions||[]).filter(t=>String(t.debtId||'')===String(debt.id)||origin&&String(t.id)===String(origin.id)||!t.debtId&&t.type==='debt'&&String(t.person||'').trim().toLocaleLowerCase('tr-TR')===personKey&&isDebtPaymentTransaction(t));
   linked.forEach(t=>markTransactionDeleted(t.id));
   debtOriginIds(debt).forEach(markTransactionDeleted);
-  data.transactions=(data.transactions||[]).filter(t=>String(t.debtId||'')!==String(debt.id));
+  data.transactions=(data.transactions||[]).filter(t=>!linked.some(x=>String(x.id)===String(t.id)));
   data.debts=(data.debts||[]).filter(d=>String(d.id)!==String(debt.id));
   data.reminders=(data.reminders||[]).filter(r=>String(r.id)!=='debt-due-'+String(debt.id));
   save();render();
@@ -2201,10 +2205,12 @@ async function deleteTransactionAndSync(id){
  if(debt){
   const isOrigin=String(debt.openingTransactionId||'')===String(deletedTx.id)||!isDebtPaymentTransaction(deletedTx);
   if(isOrigin){
-   const ids=(data.transactions||[]).filter(tx=>String(tx.debtId||'')===String(debt.id)).map(tx=>tx.id);
-   ids.forEach(markTransactionDeleted);
+   const origin=findDebtOriginTransaction(debt);
+   const personKey=String(debt.person||'').trim().toLocaleLowerCase('tr-TR');
+   const linked=(data.transactions||[]).filter(tx=>String(tx.debtId||'')===String(debt.id)||origin&&String(tx.id)===String(origin.id)||!tx.debtId&&tx.type==='debt'&&String(tx.person||'').trim().toLocaleLowerCase('tr-TR')===personKey&&isDebtPaymentTransaction(tx));
+   linked.forEach(t=>markTransactionDeleted(t.id));
    debtOriginIds(debt).forEach(markTransactionDeleted);
-   data.transactions=(data.transactions||[]).filter(tx=>String(tx.debtId||'')!==String(debt.id));
+   data.transactions=(data.transactions||[]).filter(tx=>!linked.some(t=>String(t.id)===String(tx.id)));
    data.debts=(data.debts||[]).filter(item=>String(item.id)!==String(debt.id));
    data.reminders=(data.reminders||[]).filter(reminder=>String(reminder.id)!=='debt-due-'+String(debt.id));
   }else{
