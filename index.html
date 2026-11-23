@@ -936,18 +936,19 @@ function analysis(){
   return {income,expense,net:income-expense,tx};
  };
  const current=monthMetrics(ym),previous=monthMetrics(addMonths(ym,-1));
- const yearMetrics=y=>{const all=(data.transactions||[]).filter(t=>String(t.date||'').slice(0,4)===String(y)&&t.type!=='transfer'&&t.type!=='debt');return {income:all.filter(t=>Number(t.amount||0)>0).reduce((s,t)=>s+Number(t.amount||0),0),expense:-all.filter(t=>Number(t.amount||0)<0).reduce((s,t)=>s+Number(t.amount||0),0)}};
+ const yearMetrics=y=>{const all=(data.transactions||[]).filter(t=>String(t.date||'').slice(0,4)===String(y)&&t.type!=='transfer'&&t.type!=='debt');return {income:all.filter(t=>Number(t.amount||0)>0).reduce((s,t)=>s+Number(t.amount||0),0),expense:-all.filter(t=>Number(t.amount||0)<0).reduce((s,t)=>s+Number(t.amount||0),0),tx:all,net:all.reduce((s,t)=>s+Number(t.amount||0),0)}};
  const thisYear=yearMetrics(year),lastYear=yearMetrics(year-1);
- const total=analysisMode==='income'?current.income:analysisMode==='net'?Math.abs(current.net):current.expense;
- const selectedTx=analysisMode==='income'?current.tx.filter(t=>Number(t.amount)>0):current.tx.filter(t=>Number(t.amount)<0);
+ const activeMetrics=reportPeriod==='year'?thisYear:current,priorMetrics=reportPeriod==='year'?lastYear:previous;
+ const activeTx=activeMetrics.tx||current.tx;
+ const total=analysisMode==='income'?activeMetrics.income:analysisMode==='net'?Math.abs(activeMetrics.net):activeMetrics.expense;
+ const selectedTx=analysisMode==='income'?activeTx.filter(t=>Number(t.amount)>0):activeTx.filter(t=>Number(t.amount)<0);
  const by={};selectedTx.forEach(t=>{const k=t.category||'Diğer';by[k]=(by[k]||0)+Math.abs(Number(t.amount)||0)});
  const ent=Object.entries(by).sort((a,b)=>b[1]-a[1]);
  const palette=['#6d5dfc','#ef6b77','#55c7a0','#f1b55b','#7b9cf5','#d48bdc','#6bc4d4'];
  let angle=0;const parts=ent.map(([k,v],i)=>{const deg=total?v/total*360:0,part=palette[i%palette.length]+' '+angle+'deg '+(angle+deg)+'deg';angle+=deg;return part});
  const gradient=parts.length?'conic-gradient('+parts.join(',')+')':'conic-gradient(#e9e7ff 0 360deg)';
- const pct=current.income?Math.round(current.expense/current.income*100):0,legendTotal=total||1;
+ const pct=activeMetrics.income?Math.round(activeMetrics.expense/activeMetrics.income*100):0,legendTotal=total||1;
  const months=Array.from({length:12},(_,i)=>year+'-'+String(i+1).padStart(2,'0'));
- const activeMetrics=reportPeriod==='year'?thisYear:current,priorMetrics=reportPeriod==='year'?lastYear:previous;
  const comparisonLabel=reportPeriod==='year'?'Geçen yıl':'Geçen ay';
  const comparisonHtml=['income','expense'].map(type=>{
   const currentValue=activeMetrics[type]||0,priorValue=priorMetrics[type]||0,change=currentValue-priorValue,pctChange=priorValue?change/priorValue*100:null;
@@ -958,11 +959,15 @@ function analysis(){
  const trendValues=trendKeys.map(k=>({key:k,expense:monthMetrics(k).expense}));
  const maxTrend=Math.max(1,...trendValues.map(x=>x.expense));
  const trendHtml=trendValues.map(x=>'<div class="report-bar-row"><span>'+esc(x.key.slice(5,7)+'.'+x.key.slice(0,4).slice(2))+'</span><span class="report-bar-track"><i style="width:'+Math.max(0,Math.min(100,x.expense/maxTrend*100))+'%"></i></span><small>'+money(x.expense)+'</small></div>').join('');
- const categoryKeys=Object.entries(current.tx.filter(t=>Number(t.amount)<0).reduce((acc,t)=>{const k=t.category||'Diğer';acc[k]=(acc[k]||0)+Math.abs(Number(t.amount)||0);return acc},{})).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k])=>k);
+ const categoryKeys=Object.entries(activeTx.filter(t=>Number(t.amount)<0).reduce((acc,t)=>{const k=t.category||'Diğer';acc[k]=(acc[k]||0)+Math.abs(Number(t.amount)||0);return acc},{})).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k])=>k);
+ const categoryPeriods=reportPeriod==='year'?months:Array.from({length:6},(_,i)=>addMonths(ym,i-5));
  const categoryTrend=categoryKeys.map(category=>{
-  const values=Array.from({length:6},(_,i)=>{const key=addMonths(ym,i-5),m=monthMetrics(key),amount=m.tx.filter(t=>Number(t.amount)<0&&(t.category||'Diğer')===category).reduce((s,t)=>s+Math.abs(Number(t.amount)||0),0);return {key,amount}});
+  const values=categoryPeriods.map(key=>{
+   const month=monthMetrics(key),amount=month.tx.filter(t=>Number(t.amount)<0&&(t.category||'Diğer')===category).reduce((s,t)=>s+Math.abs(Number(t.amount)||0),0);
+   return {key,amount}
+  });
   const max=Math.max(1,...values.map(x=>x.amount));
-  return '<div class="report-category-trend"><b>'+esc(category)+'</b><div class="report-month-bars">'+values.map(v=>'<span title="'+esc(v.key)+' · '+esc(money(v.amount))+'" style="height:'+Math.max(3,v.amount/max*100)+'%"></span>').join('')+'</div><small>'+money(values[5].amount)+' · bu ay</small></div>';
+  return '<div class="report-category-trend"><b>'+esc(category)+'</b><div class="report-month-bars">'+values.map(v=>'<span title="'+esc(v.key)+' · '+esc(money(v.amount))+'" style="height:'+Math.max(3,v.amount/max*100)+'%"></span>').join('')+'</div><small>'+money(values[values.length-1]?.amount||0)+' · '+(reportPeriod==='year'?'son ay':'bu ay')+'</small></div>';
  }).join('');
  const now=new Date(),currentKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
  const forecastBase=[-3,-2,-1].map(offset=>{const m=monthMetrics(addMonths(currentKey,offset));return {expense:m.expense,hasData:m.tx.length>0}});
