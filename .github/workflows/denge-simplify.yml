@@ -1,0 +1,171 @@
+name: Apply Denge 1.2.0 information architecture
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/denge-simplify.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  simplify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Apply the reviewed UI refactor
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, shutil
+
+          p = Path("index.html")
+          s = p.read_text(encoding="utf-8")
+
+          old = "const income=data.transactions.filter(t=>(t.type||'')!=='transfer'&&(t.type||'')!=='debt'&&Number(t.amount||0)>0).reduce((a,t)=>a+Number(t.amount||0),0),expense=-data.transactions.filter(t=>(t.type||'')!=='transfer'&&(t.type||'')!=='debt'&&Number(t.amount||0)<0).reduce((a,t)=>a+Number(t.amount||0),0),net=totalRealAccountBalance(),p=Math.min(100,expense/(income||1)*100);"
+          new = "const monthKey=currentMonth(),monthTx=data.transactions.filter(t=>String(t.date||'').slice(0,7)===monthKey),income=monthTx.filter(t=>(t.type||'')!=='transfer'&&(t.type||'')!=='debt'&&Number(t.amount||0)>0).reduce((a,t)=>a+Number(t.amount||0),0),expense=-monthTx.filter(t=>(t.type||'')!=='transfer'&&(t.type||'')!=='debt'&&Number(t.amount||0)<0).reduce((a,t)=>a+Number(t.amount||0),0),net=totalRealAccountBalance();"
+          if old in s: s=s.replace(old,new,1)
+          elif "const monthKey=currentMonth(),monthTx=data.transactions.filter" not in s:
+              raise SystemExit("Home income/expense calculation anchor not found; no changes committed.")
+          s=s.replace("<small>Gelir</small>","<small>Bu ay gelir</small>",1).replace("<small>Gider</small>","<small>Bu ay gider</small>",1)
+          s,n = re.subn(r'<div class="section-title" style="margin-top:15px"><h2>Bu ay</h2></div><div class="card progress-card">.*?</div></div><div class="home-actions">', '<div class="home-actions">', s, count=1, flags=re.S)
+          s = re.sub(r'<button type="button" class="nw-home-link" data-nav="networth">.*?</button><div style="height:8px"></div>', '', s, count=1, flags=re.S)
+
+          debt_fn = r"""function debtOverview(){
+           const records=(data.debts||[]).filter(d=>d&&d.status!=='closed'&&Number(d.remaining||0)>0);
+           const total=records.reduce((sum,d)=>sum+Math.max(0,Number(d.remaining)||0),0);
+           const history=(data.transactions||[]).filter(t=>t.type==='debt').slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.time||'').localeCompare(String(a.time||''))).slice(0,8);
+           const rows=records.map(d=>'<div class="debt-overview-row"><span class="debt-overview-avatar">'+esc(String(d.person||'?').trim().slice(0,1).toLocaleUpperCase('tr-TR'))+'</span><span class="debt-overview-main"><b>'+esc(d.person||'Kişi')+'</b><small>'+esc(d.account||'Hesap belirtilmedi')+' · Verilen: '+money(d.amount||0)+'</small></span><strong>'+money(d.remaining||0)+'</strong></div>').join('');
+           return '<div class="debt-overview-page"><div class="header"><button class="iconbtn" data-nav="profile">‹</button><h1>Borç / Alacak</h1><span></span></div>'
+           +'<section class="debt-overview-hero"><span>Beklenen tahsilat</span><strong>'+(hide?'••••••':money(total))+'</strong><small>'+records.length+' açık kişi kaydı</small></section>'
+           +'<div class="debt-overview-actions"><button type="button" class="primary" id="debtOverviewAdd">＋ Borç / Alacak Ekle</button><button type="button" class="secondary" id="debtOverviewHistory">İşlem geçmişi</button></div>'
+           +'<div class="section-title"><h2>Açık alacaklar</h2></div>'
+           +(rows?'<section class="debt-overview-list">'+rows+'</section>':emptyState('wallet','Açık alacak yok','Borç verdiğinde veya tahsilat aldığında kayıtların burada görünür.'))
+           +(history.length?'<div class="section-title"><h2>Son hareketler</h2></div><section class="debt-overview-list">'+history.map(t=>'<div class="debt-overview-row"><span class="debt-overview-avatar">₺</span><span class="debt-overview-main"><b>'+esc(t.person||'Borç / Alacak')+'</b><small>'+esc(t.debtTypeLabel||'Borç hareketi')+' · '+esc(t.date||'')+'</small></span><strong class="'+(Number(t.amount)>=0?'income':'expense')+'">'+(Number(t.amount)>=0?'+':'−')+money(Math.abs(Number(t.amount)||0))+'</strong></div>').join('')+'</section>':'')
+           +'</div>';
+          }"""
+          if "function debtOverview()" not in s:
+              if "function profile(){" not in s: raise SystemExit("Profile function anchor not found.")
+              s=s.replace("function profile(){",debt_fn+"\nfunction profile(){",1)
+
+          profile = r"""function profile(){
+           const catCount=(data.categories?.income?.length||0)+(data.categories?.expense?.length||0);
+           const pName=(data.settings.profileName||'').trim();
+           const pInitials=pName?pName.split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase():'İS';
+           const openDebtCount=(data.debts||[]).filter(d=>d&&d.status!=='closed'&&Number(d.remaining||0)>0).length;
+           return '<div class="profile-head"><div><h1>Profil</h1><p>Hesabını ve Denge tercihlerini yönet</p></div><button class="profile-settings" data-nav="settings" aria-label="Ayarlar">'+navSvg('settings')+'</button></div>'
+           +'<section class="profile-hero"><div class="profile-identity"><button class="profile-avatar-wrap" id="profilePhotoBtn" type="button" aria-label="Profil fotoğrafını ayarla"><span class="profile-avatar">'+(data.settings.profilePhoto?'<img src="'+esc(data.settings.profilePhoto)+'" alt="Profil fotoğrafı">':esc(pInitials))+'</span><span class="profile-avatar-edit">'+sicon('edit')+'</span></button><div><b>'+esc(data.settings.profileName||'Denge Kullanıcısı')+'</b><span>Kişisel finans hesabın</span></div></div></section>'
+           +'<div class="profile-section-title">Hesap yönetimi</div><div class="profile-menu"><div class="setting-group">'
+           +'<button class="setting" data-nav="accounts"><span class="setleft"><span class="seticon">'+sicon('card')+'</span><span><b>Hesaplar</b></span></span><span class="setright">'+data.accounts.length+' hesap ›</span></button>'
+           +'<button class="setting" data-nav="categories"><span class="setleft"><span class="seticon">'+sicon('tag')+'</span><span><b>Kategoriler</b></span></span><span class="setright">'+catCount+' kategori ›</span></button>'
+           +'<button class="setting" data-nav="budget"><span class="setleft"><span class="seticon">'+sicon('chart')+'</span><span><b>Bütçe & Hedefler</b></span></span><span class="setright">›</span></button>'
+           +'</div></div>'
+           +'<div class="profile-section-title">Finans araçları</div><div class="profile-menu"><div class="setting-group">'
+           +'<button class="setting" data-nav="networth"><span class="setleft"><span class="seticon">'+sicon('chart')+'</span><span><b>Net Varlık Geçmişi</b><small class="setting-sub">Toplam varlığının zaman içindeki değişimi</small></span></span><span class="setright">›</span></button>'
+           +'<button class="setting" data-nav="debtOverview"><span class="setleft"><span class="seticon">'+sicon('debt')+'</span><span><b>Borç / Alacak</b><small class="setting-sub">'+openDebtCount+' açık alacak kaydı</small></span></span><span class="setright">›</span></button>'
+           +'<button class="setting" data-nav="reminders"><span class="setleft"><span class="seticon">'+sicon('bell')+'</span><span><b>Hatırlatmalar</b></span></span><span class="setright">'+(data.reminders||[]).length+' kayıt ›</span></button>'
+           +'<button class="setting" data-nav="recurring"><span class="setleft"><span class="seticon">'+sicon('calendar')+'</span><span><b>Tekrarlayan İşlemler</b></span></span><span class="setright">'+(data.recurring||[]).length+' kayıt ›</span></button>'
+           +'</div></div>'
+           +'<div class="profile-section-title">Uygulama</div><div class="profile-menu"><div class="setting-group">'
+           +'<button class="setting" data-nav="settings"><span class="setleft"><span class="seticon">'+sicon('moon')+'</span><span><b>Ayarlar</b><small class="setting-sub">Görünüm, bildirimler, güvenlik ve veri yönetimi</small></span></span><span class="setright">›</span></button>'
+           +'</div><button class="profile-about-card" data-nav="about"><img class="profile-about-logo" src="./assets/brand/denge-lotus-192.png" alt="Denge"><div><b>Denge hakkında</b><span>Sürüm ve uygulama bilgileri</span></div><span class="chev">›</span></button></div><div style="height:8px"></div>';
+          }"""
+          a=s.index("function profile(){")
+          b=s.index("\nfunction about(){",a)
+          s=s[:a]+profile+s[b:]
+
+          settings = r"""function settings(){
+           return header('Ayarlar','profile')+cloudSettings()
+           +'<div class="settings-section-label">Görünüm</div><div class="setting-group">'
+           +'<button class="setting" id="theme"><span class="setleft"><span class="seticon">'+sicon('moon')+'</span><b>Tema</b></span><span class="setright">'+esc(data.settings.theme||'Açık')+' ›</span></button>'
+           +'<button class="setting" id="appLanguage"><span class="setleft"><span class="seticon">'+sicon('globe')+'</span><b>Dil</b></span><span class="setright">'+(data.settings.language==='en'?'English':'Türkçe')+' ›</span></button></div>'
+           +'<div class="settings-section-label">Bildirimler</div><div class="setting-group">'
+           +'<button class="setting" id="notify"><span class="setleft"><span class="seticon">'+sicon('bell')+'</span><span><b>Bildirimler</b><small class="setting-sub" id="notificationStatus">'+notificationStatusLabel()+'</small></span></span><span class="switch '+(data.settings.notifications&&notificationPermissionGranted()?'on':'')+'"><i></i></span></button></div>'
+           +'<div class="setting-group budget-notifications-group"><button type="button" class="budget-notifications-toggle" id="budgetNotificationsToggle" aria-expanded="false" aria-controls="budgetNotificationsPanel"><b>Bütçe ve ödeme uyarıları</b><svg class="budget-notifications-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="budget-notifications-panel" id="budgetNotificationsPanel" hidden>'
+           +'<button class="setting" id="budgetAlert80"><span class="setleft"><span class="seticon">'+sicon('chart')+'</span><span class="budget-setting-copy"><b>%80 uyarısı</b><small class="setting-sub">Bütçe limitine yaklaşınca</small></span></span><span class="switch '+(data.settings.budgetAlert80!==false?'on':'')+'"><i></i></span></button>'
+           +'<button class="setting" id="budgetAlert100"><span class="setleft"><span class="seticon">'+sicon('alert')+'</span><span class="budget-setting-copy"><b>%100 bütçe aşımı</b><small class="setting-sub">Kategori bütçesi aşıldığında</small></span></span><span class="switch '+(data.settings.budgetAlert100!==false?'on':'')+'"><i></i></span></button>'
+           +'<button class="setting" id="recurringReminders"><span class="setleft"><span class="seticon">'+sicon('calendar')+'</span><span class="budget-setting-copy"><b>Tekrarlayan ödeme hatırlatmaları</b><small class="setting-sub">Ödeme gününden önce bildirim</small></span></span><span class="switch '+(data.settings.recurringReminders!==false?'on':'')+'"><i></i></span></button>'
+           +'<div class="reminder-preferences"><label for="recurringReminderDays">Ödeme öncesi</label><select id="recurringReminderDays" class="field"><option value="0" '+(Number(data.settings.recurringReminderDays)===0?'selected':'')+'>Ödeme günü</option><option value="1" '+(Number(data.settings.recurringReminderDays??1)===1?'selected':'')+'>1 gün önce</option><option value="3" '+(Number(data.settings.recurringReminderDays)===3?'selected':'')+'>3 gün önce</option><option value="7" '+(Number(data.settings.recurringReminderDays)===7?'selected':'')+'>7 gün önce</option></select><label for="recurringReminderTime">Bildirim saati</label><input id="recurringReminderTime" type="time" class="field" value="'+esc(data.settings.recurringReminderTime||'09:00')+'"></div></div></div>'
+           +'<div class="settings-section-label">Finans tercihleri</div><div class="setting-group"><button class="setting" id="currency"><span class="setleft"><span class="seticon">'+sicon('currency')+'</span><b>Para birimi</b></span><span class="setright">'+esc(data.settings.currency||'TRY')+' ›</span></button></div>'
+           +'<div class="settings-section-label">Güvenlik</div><div class="setting-group"><button class="setting" id="security"><span class="setleft"><span class="seticon">'+sicon('shield')+'</span><b>Güvenlik kilidi</b></span><span class="switch '+(data.settings.security?'on':'')+'"><i></i></span></button></div>'
+           +'<div class="settings-section-label">Veri yönetimi</div><div class="setting-group"><button class="setting" id="exportData"><span class="setleft"><span class="seticon">⇩</span><span><b>CSV / Excel dışa aktar</b><small class="setting-sub">İşlemler, hesaplar, bütçeler ve diğer tablolar</small></span></span><span class="setright">›</span></button></div>'
+           +'<div class="setting-group"><div class="backup-row"><button class="setting" id="backup"><span class="setleft"><span class="seticon">'+sicon('cloud')+'</span><b>Yedekle</b></span></button><button class="setting" id="restore"><span class="setleft"><span class="seticon">'+sicon('cloud')+'</span><b>Yedek yükle</b></span></button></div><div class="settings-note">Yedek dosyası JSON olarak dışa/içe aktarılır.</div></div>'
+           +'<div class="setting-group"><button class="setting danger-setting" id="clearData"><span class="setleft"><span class="seticon">'+sicon('trash')+'</span><b>Veri temizle</b></span><span class="setright">›</span></button></div>'
+           +'<div class="settings-section-label">Uygulama bilgisi</div><div class="setting-group"><button class="setting" data-nav="about"><span class="setleft"><span class="seticon">'+sicon('info')+'</span><b>Denge hakkında</b></span><span class="setright">›</span></button></div><input id="restoreFile" type="file" accept="application/json,.json" hidden>';
+          }"""
+          a=s.index("function settings(){")
+          b=s.index("\n",a)
+          s=s[:a]+settings+s[b:]
+
+          render_anchor = "page==='networth'?networth():page==='profile'?profile()"
+          if render_anchor in s:
+              s=s.replace(render_anchor,"page==='networth'?networth():page==='debtOverview'?debtOverview():page==='profile'?profile()",1)
+          elif "page==='debtOverview'?debtOverview()" not in s:
+              raise SystemExit("Page renderer anchor not found.")
+
+          bind_anchor = "const quickAddFabButton=document.getElementById('quickAddFab');"
+          bind_code = "const debtOverviewAdd=document.getElementById('debtOverviewAdd');if(debtOverviewAdd)debtOverviewAdd.onclick=()=>{window.homeAddType='debt';nav('add')};const debtOverviewHistory=document.getElementById('debtOverviewHistory');if(debtOverviewHistory)debtOverviewHistory.onclick=()=>{filter='debt';transactionsView='history';nav('transactions')};"
+          if bind_anchor in s and "debtOverviewAdd=document.getElementById" not in s:
+              s=s.replace(bind_anchor,bind_code+bind_anchor,1)
+
+          css = r"""
+          /* Denge information architecture refinement */
+          .settings-section-label{font-size:11px;font-weight:800;letter-spacing:.02em;color:#81889a;margin:17px 4px 7px}
+          .dark .settings-section-label{color:#a5aabd}
+          .profile-hero{margin-bottom:14px}
+          .profile-section-title{margin-top:19px}
+          .debt-overview-page{padding-bottom:12px}
+          .debt-overview-hero{padding:19px;border-radius:22px;background:linear-gradient(135deg,#eeebff,#edf8f3);border:1px solid #ddd8f8;display:flex;flex-direction:column;gap:5px;margin:8px 0 12px}
+          .debt-overview-hero span,.debt-overview-hero small{font-size:11px;color:#74788c}
+          .debt-overview-hero strong{font-size:29px;letter-spacing:-.5px;color:#20243a}
+          .debt-overview-actions{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:15px}
+          .debt-overview-actions .secondary{border:1px solid #e8e6ef;background:var(--card,#fff);color:var(--text,#25283a);border-radius:14px;padding:0 13px;font:inherit;font-size:11px;font-weight:750}
+          .debt-overview-list{background:var(--card,#fff);border:1px solid var(--line,#eceaf2);border-radius:18px;padding:0 13px}
+          .debt-overview-row{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--line,#eceaf2)}
+          .debt-overview-row:last-child{border-bottom:0}
+          .debt-overview-avatar{width:34px;height:34px;flex:none;border-radius:12px;background:#efedff;color:#6558e8;display:grid;place-items:center;font-size:13px;font-weight:800}
+          .debt-overview-main{min-width:0;flex:1}.debt-overview-main b{display:block;font-size:12px}.debt-overview-main small{display:block;color:#8b91a1;font-size:10px;margin-top:3px}.debt-overview-row>strong{font-size:12px;white-space:nowrap}
+          .dark .debt-overview-hero{background:linear-gradient(135deg,#292451,#173129);border-color:#45406d}.dark .debt-overview-hero strong{color:#eef0fa}.dark .debt-overview-hero span,.dark .debt-overview-hero small{color:#b9b5cc}.dark .debt-overview-avatar{background:#302b58;color:#c4bcff}.dark .debt-overview-actions .secondary{background:#181a27;border-color:#292c3c;color:#eef0fa}
+          """
+          if "/* Denge information architecture refinement */" not in s:
+              s=s.replace("</style>",css+"\n</style>",1)
+
+          Path("index.html").write_text(s,encoding="utf-8")
+          shutil.copyfile("index.html","public/index.html")
+          for sw in [Path("service-worker.js"),Path("public/service-worker.js")]:
+              t=sw.read_text(encoding="utf-8")
+              t=re.sub(r"denge-static-[^']+", "denge-static-v1.2.0-simplified-navigation", t, count=1)
+              sw.write_text(t,encoding="utf-8")
+
+          Path("CHANGELOG-1.2.0-ARAYUZ-MIMARISI.md").write_text("""# Denge 1.2.0 – Daha sade ekran mimarisi
+
+          - Ana Sayfa'daki yinelenen Net Durum kartı kaldırıldı; gelir/gider özetleri geçerli aya bağlandı.
+          - İşlemler ve Analiz ana akışları korundu.
+          - Profildeki tekrar eden finans kartları kaldırıldı; Hesap yönetimi, Finans araçları ve Uygulama grupları oluşturuldu.
+          - Net Varlık Geçmişi, Borç / Alacak, Hatırlatmalar ve Tekrarlayan İşlemler tek finans araçları grubundan erişilir.
+          - Borç / Alacak özeti mevcut borç ve işlem kayıtlarını kullanır; yeni veri şeması oluşturulmadı.
+          - Ayarlar görünüm, bildirimler, finans tercihleri, güvenlik, veri yönetimi ve uygulama bilgisi olarak gruplandırıldı.
+          - Kayıt şeması, hesaplama, Supabase eşitleme ve yedekleme kodu değiştirilmedi.
+          """,encoding="utf-8")
+          PY
+      - name: Verify before commit
+        run: |
+          node -e "const fs=require('fs');const s=fs.readFileSync('index.html','utf8');if(!s.includes('function debtOverview()')||!s.includes('Bütçe & Hedefler')||!s.includes('Denge information architecture refinement'))process.exit(1);"
+          cmp -s index.html public/index.html
+          grep -q "denge-static-v1.2.0-simplified-navigation" service-worker.js
+      - name: Commit refactor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html public/index.html service-worker.js public/service-worker.js CHANGELOG-1.2.0-ARAYUZ-MIMARISI.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Refactor Denge information architecture for v1.2.0"
+            git push origin HEAD:main
+          fi
