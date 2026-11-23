@@ -148,6 +148,16 @@ jobs:
               await page.locator('button.navitem[data-nav="profile"]').click();
               await page.locator('button[data-nav="debtOverview"]').first().click();
               await page.locator('#addDetailedDebt').click();
+              await page.waitForTimeout(200);
+              console.log(target.name + ' debt modal debug:', {
+                debtOverviewVisible: await page.locator('.debt-overview-page').count(),
+                addDetailedDebt: await page.locator('#addDetailedDebt').count(),
+                debtModal: await page.locator('#debtRecordModal').count(),
+                debtPersonField: await page.locator('#debtRecordPerson').count(),
+                body: (await page.locator('#app').innerText()).slice(0, 1800),
+                pageErrors
+              });
+              await page.locator('#debtRecordPerson').waitFor({ state: 'visible', timeout: 5000 });
               await page.locator('#debtRecordPerson').fill('Smoke Borç Kişisi');
               await page.locator('#debtRecordAmount').fill('500');
               await page.locator('#debtRecordRate').fill('1');
