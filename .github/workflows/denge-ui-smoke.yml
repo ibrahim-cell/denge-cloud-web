@@ -57,7 +57,7 @@ jobs:
               page.on('pageerror', error => pageErrors.push(error.message));
               await page.goto('http://127.0.0.1:4173/index.html', { waitUntil: 'domcontentloaded', timeout: 30000 });
               await page.waitForTimeout(1800);
-              if (!page.title().includes('Denge')) throw new Error(target.name + ': page title missing');
+              if (!(await page.title()).includes('Denge')) throw new Error(target.name + ': page title missing');
               if (!(await page.locator('body').innerText()).includes('Denge')) throw new Error(target.name + ': app body not rendered');
 
               await page.locator('button.navitem[data-nav="profile"]').click();
