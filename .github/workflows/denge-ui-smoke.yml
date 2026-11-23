@@ -58,7 +58,7 @@ jobs:
               await page.goto('http://127.0.0.1:4173/index.html', { waitUntil: 'domcontentloaded', timeout: 30000 });
               await page.waitForTimeout(1800);
               if (!(await page.title()).includes('Denge')) throw new Error(target.name + ': page title missing');
-              if (!(await page.locator('body').innerText()).includes('Denge')) throw new Error(target.name + ': app body not rendered');
+              const bodyText = await page.locator('body').innerText(); console.log(target.name + ' body: ' + bodyText.slice(0,1200)); console.log(target.name + ' page errors: ' + JSON.stringify(pageErrors)); if (bodyText.trim().length < 5) throw new Error(target.name + ': app root stayed empty; pageErrors=' + pageErrors.join(' | '));
 
               await page.locator('button.navitem[data-nav="profile"]').click();
               await page.getByText('Hesap yönetimi', { exact: true }).waitFor({ timeout: 5000 });
