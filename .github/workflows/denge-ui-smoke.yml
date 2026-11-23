@@ -144,7 +144,7 @@ jobs:
               await page.locator('[data-report-period="month"]').click();
               await page.getByText('Önceki dönem karşılaştırması', { exact: true }).waitFor({ timeout: 5000 });
 
-              // Debt creation, due date, interest and partial repayment
+              // Debt ledger: create, edit debt, edit/delete repayment, and cascade delete
               await page.locator('button.navitem[data-nav="profile"]').click();
               await page.locator('button[data-nav="debtOverview"]').first().click();
               await page.locator('#addDetailedDebt').click();
@@ -154,10 +154,50 @@ jobs:
               await page.locator('#debtRecordDue').fill(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10));
               await page.locator('#debtRecordSave').click();
               await page.getByText('Smoke Borç Kişisi', { exact: true }).waitFor({ timeout: 5000 });
-              await page.locator('button[data-debt-payment]').first().click();
+
+              await page.locator('[data-debt-payment]').first().click();
               await page.locator('#debtPaymentAmount').fill('100');
               await page.locator('#debtPaymentSave').click();
               await page.getByText('Ödeme geçmişi (1)', { exact: true }).waitFor({ timeout: 5000 });
+
+              await page.locator('[data-debt-edit]').first().click();
+              await page.locator('#debtRecordPerson').fill('Smoke Düzenlenen Borç');
+              await page.locator('#debtRecordSave').click();
+              await page.getByText('Smoke Düzenlenen Borç', { exact: true }).waitFor({ timeout: 5000 });
+
+              await page.locator('[data-debt-history]').first().click();
+              await page.locator('[data-payment-edit]').first().click();
+              await page.locator('#debtPaymentEditAmount').fill('120');
+              await page.locator('#debtPaymentEditSave').click();
+              await page.getByText('Ödeme geçmişi (1)', { exact: true }).waitFor({ timeout: 5000 });
+
+              await page.locator('[data-debt-history]').first().click();
+              await page.locator('[data-payment-delete]').first().click();
+              await page.locator('#txDelOk').click();
+              await page.getByText('Ödeme geçmişi (0)', { exact: true }).waitFor({ timeout: 5000 });
+
+              // Deleting the opening movement from İşlemler must also remove its debt card.
+              await page.locator('#addDetailedDebt').click();
+              await page.locator('#debtRecordPerson').fill('Smoke Silinecek Borç');
+              await page.locator('#debtRecordAmount').fill('200');
+              await page.locator('#debtRecordSave').click();
+              await page.locator('button.navitem[data-nav="transactions"]').click();
+              await page.locator('#app [data-detail]').filter({ hasText: 'Smoke Silinecek Borç' }).first().click();
+              await page.locator('#txDeleteBtn').click();
+              await page.locator('#txDelOk').click();
+              await page.locator('button.navitem[data-nav="profile"]').click();
+              await page.locator('button[data-nav="debtOverview"]').first().click();
+              if (await page.getByText('Smoke Silinecek Borç', { exact: true }).count()) {
+                throw new Error(target.name + ': deleting the opening debt transaction left an orphan debt record');
+              }
+
+              // Quick entry must distinguish money lent from money borrowed.
+              await page.locator('#debtOverviewAdd').click();
+              await page.locator('#debtPerson').fill('Smoke Aldığım Borç');
+              await page.locator('#debtAmount').fill('300');
+              await page.locator('[data-debt-kind="alindi"]').click();
+              await page.locator('#saveTx').click();
+              await page.getByText('Smoke Aldığım Borç', { exact: true }).waitFor({ timeout: 5000 });
 
               // Quick widget note persists through app state and render
               await page.locator('button.navitem[data-nav="home"]').click();
