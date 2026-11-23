@@ -698,11 +698,11 @@ function debtPrincipalRemaining(debt){
 }
 function debtAccruedInterest(debt,now=new Date()){
  const rate=Math.max(0,Number(debt&&debt.interestRateMonthly)||0);
- const start=new Date(debt&&(debt.interestStartDate||debt.createdAt)||now);
- if(!rate||Number.isNaN(start.getTime()))return 0;
+ const start=new Date(debt&&(debt.interestLastCalculatedAt||debt.createdAt)||now);
+ if(!rate||Number.isNaN(start.getTime()))return Math.max(0,Number(debt&&debt.interestBalance)||0);
  const elapsed=Math.max(0,(now.getTime()-start.getTime())/(86400000*30.4375));
- const base=Math.max(0,Number(debt&&debt.principalAmount!==undefined?debt.principalAmount:debt&&debt.amount)||0);
- return Math.max(0,Math.round((base*rate/100*elapsed-Number(debt&&debt.interestPaid||0))*100)/100);
+ const base=debtPrincipalRemaining(debt);
+ return Math.max(0,Math.round((Number(debt&&debt.interestBalance||0)+base*rate/100*elapsed)*100)/100);
 }
 function debtOutstanding(debt,now=new Date()){
  if(!debt||debt.status==='closed')return 0;
@@ -1346,18 +1346,66 @@ plus:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></
 'account':'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18M8 15h4"/></svg>'
 };
 return a[name]||a.info}
+function debtDirectionOf(debt){return debt&&debt.direction==='payable'?'payable':'receivable'}
+function showDebtRecordModal(){
+ const html='<div class="settings-modal" id="debtRecordModal"><div class="settings-modal-card goal-modal-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon('debt')+'</span><div><h3>Detaylı borç / alacak kaydı</h3><p>Kişi, vade ve faiz bilgilerini kaydet.</p></div></div><div class="goal-fields"><div class="goal-field"><label>Kayıt türü</label><select id="debtDirection" class="account-type-field"><option value="receivable">Ben borç verdim (alacağım)</option><option value="payable">Ben borç aldım (ödeyeceğim)</option></select></div><div class="goal-field"><label>Kişi</label><input id="debtRecordPerson" maxlength="70" placeholder="Kişi adı"></div><div class="goal-field"><label>Anapara</label><input id="debtRecordAmount" inputmode="decimal" placeholder="0"></div><div class="goal-field"><label>Aylık basit faiz (%) · isteğe bağlı</label><input id="debtRecordRate" inputmode="decimal" placeholder="0"></div><div class="goal-field"><label>Vade tarihi · isteğe bağlı</label><input id="debtRecordDue" type="date"></div><div class="goal-field"><label>Para hareketinin hesabı</label><select id="debtRecordAccount" class="account-type-field">'+(data.accounts||[]).map(a=>'<option value="'+esc(a.name)+'">'+esc(a.name)+'</option>').join('')+'</select></div><div class="goal-field"><label>Vade kaç gün önce hatırlatılsın?</label><select id="debtRecordReminder" class="account-type-field"><option value="0">Vade günü</option><option value="1">1 gün önce</option><option value="3" selected>3 gün önce</option><option value="7">7 gün önce</option></select></div></div><div class="goal-actions"><button class="goal-cancel" id="debtRecordCancel">Vazgeç</button><button class="goal-primary" id="debtRecordSave">Kaydet</button></div></div></div>';
+ document.body.insertAdjacentHTML('beforeend',html);const m=document.getElementById('debtRecordModal');
+ document.getElementById('debtRecordCancel').onclick=()=>m.remove();
+ document.getElementById('debtRecordSave').onclick=()=>{
+  const person=document.getElementById('debtRecordPerson').value.trim(),amount=Number(String(document.getElementById('debtRecordAmount').value||'').replace(',','.'));
+  const rate=Number(String(document.getElementById('debtRecordRate').value||'0').replace(',','.')),direction=document.getElementById('debtDirection').value;
+  const dueDate=document.getElementById('debtRecordDue').value,account=document.getElementById('debtRecordAccount').value,reminderDays=Number(document.getElementById('debtRecordReminder').value||0);
+  if(!person||!Number.isFinite(amount)||amount<=0||!Number.isFinite(rate)||rate<0||rate>100){showAlertCard('Kişi, geçerli anapara ve %0–100 arası aylık faiz girin.','Kayıt oluşturulamadı','error');return}
+  const id='debt-'+Date.now(),createdAt=new Date().toISOString();
+  const debt={id,person,direction,amount,principalAmount:amount,principalRemaining:amount,remaining:amount,status:'open',account,dueDate,interestRateMonthly:rate,interestBalance:0,interestLastCalculatedAt:createdAt,createdAt,reminderDays,payments:[]};
+  data.debts=Array.isArray(data.debts)?data.debts:[];data.debts.push(debt);
+  const signed=direction==='receivable'?-amount:amount;
+  data.transactions.unshift({id:'tx-'+id,type:'debt',name:direction==='receivable'?'Borç verildi':'Borç alındı',category:'Borç / Alacak',amount:signed,date:localDateISO(),time:new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),account,person,debtId:id,debtDirection:direction,debtTypeLabel:direction==='receivable'?'Borç Verildi':'Borç Alındı'});
+  syncDebtReminder(debt);save();m.remove();render();toast('Borç / alacak kaydı oluşturuldu.');
+ };m.onclick=e=>{if(e.target===m)m.remove()};
+}
+function showDebtPaymentModal(debtId){
+ const debt=(data.debts||[]).find(d=>String(d.id)===String(debtId));if(!debt)return;
+ const outstanding=debtOutstanding(debt),interest=debtAccruedInterest(debt);
+ const direction=debtDirectionOf(debt),verb=direction==='receivable'?'Tahsilat al':'Ödeme yap';
+ const html='<div class="settings-modal" id="debtPaymentModal"><div class="settings-modal-card goal-modal-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon('currency')+'</span><div><h3>'+verb+'</h3><p>'+esc(debt.person||'Kişi')+' · Kalan '+money(outstanding)+'</p></div></div><div class="goal-fields"><div class="goal-field"><label>Ödeme tutarı</label><input id="debtPaymentAmount" inputmode="decimal" placeholder="'+String(outstanding)+'"></div><div class="goal-field"><label>İşlem tarihi</label><input id="debtPaymentDate" type="date" value="'+localDateISO()+'"></div><div class="goal-field"><small>Şu anki tahmini birikmiş faiz: '+money(interest)+'. Ödeme önce faize, sonra anaparaya uygulanır.</small></div></div><div class="goal-actions"><button class="goal-cancel" id="debtPaymentCancel">Vazgeç</button><button class="goal-primary" id="debtPaymentSave">Ödemeyi kaydet</button></div></div></div>';
+ document.body.insertAdjacentHTML('beforeend',html);const m=document.getElementById('debtPaymentModal');
+ document.getElementById('debtPaymentCancel').onclick=()=>m.remove();
+ document.getElementById('debtPaymentSave').onclick=()=>{
+  const amount=Number(String(document.getElementById('debtPaymentAmount').value||'').replace(',','.')),date=document.getElementById('debtPaymentDate').value;
+  if(!Number.isFinite(amount)||amount<=0||amount>outstanding+0.01||!date){showAlertCard('Geçerli tarih ve kalan tutarı aşmayan ödeme girin.','Ödeme kaydedilemedi','error');return}
+  const now=new Date(date+'T12:00:00'),interestDue=debtAccruedInterest(debt,now),principal=debtPrincipalRemaining(debt);
+  const toInterest=Math.min(amount,interestDue),toPrincipal=Math.min(principal,Math.max(0,amount-toInterest));
+  debt.interestBalance=Math.max(0,Math.round((interestDue-toInterest)*100)/100);
+  debt.interestLastCalculatedAt=now.toISOString();
+  debt.principalRemaining=Math.max(0,Math.round((principal-toPrincipal)*100)/100);
+  debt.remaining=Math.max(0,Math.round((debt.principalRemaining+debt.interestBalance)*100)/100);
+  debt.payments=Array.isArray(debt.payments)?debt.payments:[];
+  debt.payments.push({id:'payment-'+Date.now(),amount,date,interestPaid:toInterest,principalPaid:toPrincipal});
+  debt.status=debt.remaining<=0.01?'closed':'open';
+  const signed=direction==='receivable'?amount:-amount;
+  data.transactions.unshift({id:'tx-payment-'+Date.now(),type:'debt',name:direction==='receivable'?'Borç tahsilatı':'Borç geri ödemesi',category:'Borç / Alacak',amount:signed,date,time:new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),account:debt.account||'',person:debt.person,debtId:String(debt.id),debtDirection:direction,debtTypeLabel:direction==='receivable'?'Tahsilat':'Ödeme',interestPaid:toInterest,principalPaid:toPrincipal});
+  syncDebtReminder(debt);save();m.remove();render();toast(debt.status==='closed'?'Borç / alacak kapatıldı.':'Kısmi ödeme kaydedildi.');
+ };m.onclick=e=>{if(e.target===m)m.remove()};
+}
 function debtOverview(){
- const records=(data.debts||[]).filter(d=>d&&d.status!=='closed'&&Number(d.remaining||0)>0);
- const total=records.reduce((sum,d)=>sum+Math.max(0,Number(d.remaining)||0),0);
- const history=(data.transactions||[]).filter(t=>t.type==='debt').slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.time||'').localeCompare(String(a.time||''))).slice(0,8);
- const rows=records.map(d=>'<div class="debt-overview-row"><span class="debt-overview-avatar">'+esc(String(d.person||'?').trim().slice(0,1).toLocaleUpperCase('tr-TR'))+'</span><span class="debt-overview-main"><b>'+esc(d.person||'Kişi')+'</b><small>'+esc(d.account||'Hesap belirtilmedi')+' · Verilen: '+money(d.amount||0)+'</small></span><strong>'+money(d.remaining||0)+'</strong></div>').join('');
+ const all=(data.debts||[]).filter(d=>d&&d.status!=='closed'&&debtOutstanding(d)>0.009);
+ const receivables=all.filter(d=>debtDirectionOf(d)==='receivable'),payables=all.filter(d=>debtDirectionOf(d)==='payable');
+ const totalReceivable=receivables.reduce((s,d)=>s+debtOutstanding(d),0),totalPayable=payables.reduce((s,d)=>s+debtOutstanding(d),0);
+ const renderRows=list=>list.map(d=>{
+  const principal=debtPrincipalRemaining(d),interest=debtAccruedInterest(d),total=debtOutstanding(d),due=d.dueDate?new Date(d.dueDate+'T00:00:00').toLocaleDateString('tr-TR'):'Vade yok';
+  const late=d.dueDate&&d.dueDate<localDateISO();
+  return '<div class="debt-overview-row"><span class="debt-overview-avatar">'+esc(String(d.person||'?').trim().slice(0,1).toLocaleUpperCase('tr-TR'))+'</span><div class="debt-overview-main"><b>'+esc(d.person||'Kişi')+'</b><div class="debt-meta"><span class="debt-direction '+(debtDirectionOf(d)==='payable'?'payable':'')+'">'+(debtDirectionOf(d)==='payable'?'Ben borç aldım':'Ben borç verdim')+'</span><span class="'+(late?'expense':'')+'">'+esc(due)+(late?' · Vadesi geçti':'')+'</span></div><small>Anapara: '+money(principal)+(interest>0?' · Faiz: '+money(interest):'')+(Number(d.interestRateMonthly)>0?' · Aylık %'+Number(d.interestRateMonthly):'')+'</small><div class="debt-row-actions"><button type="button" data-debt-payment="'+esc(String(d.id))+'">'+(debtDirectionOf(d)==='payable'?'Ödeme yap':'Tahsilat al')+'</button><button type="button" class="secondary" data-debt-history="'+esc(String(d.id))+'">Ödeme geçmişi ('+(Array.isArray(d.payments)?d.payments.length:0)+')</button></div></div><strong class="'+(debtDirectionOf(d)==='payable'?'expense':'')+'">'+money(total)+'</strong></div>';
+ }).join('');
+ const paymentHistory=(data.debts||[]).filter(d=>Array.isArray(d.payments)&&d.payments.length).sort((a,b)=>String(b.dueDate||b.createdAt||'').localeCompare(String(a.dueDate||a.createdAt||''))).slice(0,5);
  return '<div class="debt-overview-page"><div class="header"><button class="iconbtn" data-nav="profile">‹</button><h1>Borç / Alacak</h1><span></span></div>'
- +'<section class="debt-overview-hero"><span>Beklenen tahsilat</span><strong>'+(hide?'••••••':money(total))+'</strong><small>'+records.length+' açık kişi kaydı</small></section>'
- +'<div class="debt-overview-actions"><button type="button" class="primary" id="debtOverviewAdd">＋ Borç / Alacak Ekle</button><button type="button" class="secondary" id="debtOverviewHistory">İşlem geçmişi</button></div>'
- +'<div class="section-title"><h2>Açık alacaklar</h2></div>'
- +(rows?'<section class="debt-overview-list">'+rows+'</section>':emptyState('wallet','Açık alacak yok','Borç verdiğinde veya tahsilat aldığında kayıtların burada görünür.'))
- +(history.length?'<div class="section-title"><h2>Son hareketler</h2></div><section class="debt-overview-list">'+history.map(t=>'<div class="debt-overview-row"><span class="debt-overview-avatar">₺</span><span class="debt-overview-main"><b>'+esc(t.person||'Borç / Alacak')+'</b><small>'+esc(t.debtTypeLabel||'Borç hareketi')+' · '+esc(t.date||'')+'</small></span><strong class="'+(Number(t.amount)>=0?'income':'expense')+'">'+(Number(t.amount)>=0?'+':'−')+money(Math.abs(Number(t.amount)||0))+'</strong></div>').join('')+'</section>':'')
- +'</div>';
+ +'<section class="debt-overview-hero"><span>Net borç / alacak bakiyesi</span><strong>'+(hide?'••••••':money(totalReceivable-totalPayable))+'</strong><small>'+receivables.length+' alacak · '+payables.length+' borç kaydı</small></section>'
+ +'<div class="account-summary-grid"><div><small>Tahsil edilecek</small><b>'+money(totalReceivable)+'</b></div><div class="liability"><small>Ödenecek</small><b>'+money(totalPayable)+'</b></div><div class="net"><small>Net fark</small><b>'+money(totalReceivable-totalPayable)+'</b></div></div>'
+ +'<div class="debt-overview-actions"><button type="button" class="primary" id="addDetailedDebt">＋ Detaylı kayıt ekle</button><button type="button" class="secondary" id="debtOverviewAdd">Hızlı kayıt</button></div>'
+ +'<div class="section-title"><h2>Açık alacaklar</h2></div>'+(receivables.length?'<section class="debt-overview-list">'+renderRows(receivables)+'</section>':emptyState('wallet','Açık alacak yok','Borç verdiğinde burada görünür.'))
+ +'<div class="section-title"><h2>Ödenecek borçlar</h2></div>'+(payables.length?'<section class="debt-overview-list">'+renderRows(payables)+'</section>':emptyState('wallet','Ödenecek borç yok','Borç aldığında burada takip edebilirsin.'))
+ +(paymentHistory.length?'<div class="section-title"><h2>Son ödeme kayıtları</h2></div><section class="debt-overview-list">'+paymentHistory.map(d=>'<div class="debt-overview-row"><span class="debt-overview-avatar">₺</span><div class="debt-overview-main"><b>'+esc(d.person||'Kişi')+'</b><small>'+d.payments.length+' ödeme · Son ödeme '+esc(d.payments[d.payments.length-1].date||'')+'</small></div><strong>'+money(d.payments.reduce((s,p)=>s+Number(p.amount||0),0))+'</strong></div>').join('')+'</section>':'')
+ +'<p class="budget-footnote">Faiz, girilen aylık oran üzerinden basit faiz olarak hesaplanır. Ödeme önce birikmiş faizi, sonra anaparayı azaltır. Vade hatırlatmaları bildirim izni açıkken kullanılır.</p></div>';
 }
 function profile(){
  const catCount=(data.categories?.income?.length||0)+(data.categories?.expense?.length||0);
@@ -2026,7 +2074,14 @@ function showAddRecurring(existingRecord){
  };
  m.onclick=e=>{if(e.target===m)m.remove()};
 }
-function bind(){document.querySelectorAll('[data-transactions-more]').forEach(b=>b.onclick=()=>{transactionLimit+=30;render()});document.querySelectorAll('[data-transactions-less]').forEach(b=>b.onclick=()=>{transactionLimit=Math.max(30,transactionLimit-30);render()});document.querySelectorAll('[data-home-all-transactions]').forEach(b=>b.onclick=()=>{transactionsView='history';filter='all';q='';searchOpen=false;nav('transactions')});const budgetNotificationsToggle=document.getElementById('budgetNotificationsToggle'),budgetNotificationsPanel=document.getElementById('budgetNotificationsPanel');if(budgetNotificationsToggle&&budgetNotificationsPanel){budgetNotificationsToggle.onclick=()=>{const expanded=budgetNotificationsToggle.getAttribute('aria-expanded')!=='true';budgetNotificationsToggle.setAttribute('aria-expanded',String(expanded));budgetNotificationsPanel.hidden=!expanded;}}document.querySelectorAll('[data-networth-range]').forEach(b=>b.onclick=()=>{window.netWorthRange=b.dataset.networthRange;render(true)});const debtOverviewAdd=document.getElementById('debtOverviewAdd');if(debtOverviewAdd)debtOverviewAdd.onclick=()=>{window.homeAddType='debt';nav('add')};const debtOverviewHistory=document.getElementById('debtOverviewHistory');if(debtOverviewHistory)debtOverviewHistory.onclick=()=>{filter='debt';transactionsView='history';nav('transactions')};const quickAddFabButton=document.getElementById('quickAddFab');if(quickAddFabButton)quickAddFabButton.onclick=()=>{window.homeAddType=null;nav('add')};document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>{if(b.dataset.nav)nav(b.dataset.nav)});
+function bind(){document.querySelectorAll('[data-transactions-more]').forEach(b=>b.onclick=()=>{transactionLimit+=30;render()});document.querySelectorAll('[data-transactions-less]').forEach(b=>b.onclick=()=>{transactionLimit=Math.max(30,transactionLimit-30);render()});document.querySelectorAll('[data-home-all-transactions]').forEach(b=>b.onclick=()=>{transactionsView='history';filter='all';q='';searchOpen=false;nav('transactions')});const budgetNotificationsToggle=document.getElementById('budgetNotificationsToggle'),budgetNotificationsPanel=document.getElementById('budgetNotificationsPanel');if(budgetNotificationsToggle&&budgetNotificationsPanel){budgetNotificationsToggle.onclick=()=>{const expanded=budgetNotificationsToggle.getAttribute('aria-expanded')!=='true';budgetNotificationsToggle.setAttribute('aria-expanded',String(expanded));budgetNotificationsPanel.hidden=!expanded;}}document.querySelectorAll('[data-networth-range]').forEach(b=>b.onclick=()=>{window.netWorthRange=b.dataset.networthRange;render(true)});const debtOverviewAdd=document.getElementById('debtOverviewAdd');if(debtOverviewAdd)debtOverviewAdd.onclick=()=>{window.homeAddType='debt';nav('add')};
+ const addDetailedDebt=document.getElementById('addDetailedDebt');if(addDetailedDebt)addDetailedDebt.onclick=showDebtRecordModal;
+ document.querySelectorAll('[data-debt-payment]').forEach(b=>b.onclick=()=>showDebtPaymentModal(b.dataset.debtPayment));
+ document.querySelectorAll('[data-debt-history]').forEach(b=>b.onclick=()=>{
+  const debt=(data.debts||[]).find(d=>String(d.id)===String(b.dataset.debtHistory));if(!debt)return;
+  const rows=(debt.payments||[]).map(p=>'<div class="report-year-row"><span>'+esc(p.date||'')+'</span><strong>'+money(p.amount||0)+'</strong><small>Faiz '+money(p.interestPaid||0)+' · Anapara '+money(p.principalPaid||0)+'</small></div>').join('');
+  const modal=document.createElement('div');modal.className='settings-modal';modal.innerHTML='<div class="settings-modal-card goal-modal-card"><h3>'+esc(debt.person||'Kişi')+' · Ödeme geçmişi</h3>'+rows+'<button type="button" class="modal-close" id="debtHistoryClose">Kapat</button></div>';document.body.appendChild(modal);modal.querySelector('#debtHistoryClose').onclick=()=>modal.remove();modal.onclick=e=>{if(e.target===modal)modal.remove()};
+ });const debtOverviewHistory=document.getElementById('debtOverviewHistory');if(debtOverviewHistory)debtOverviewHistory.onclick=()=>{filter='debt';transactionsView='history';nav('transactions')};const quickAddFabButton=document.getElementById('quickAddFab');if(quickAddFabButton)quickAddFabButton.onclick=()=>{window.homeAddType=null;nav('add')};document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>{if(b.dataset.nav)nav(b.dataset.nav)});
  const addReminder=document.getElementById('addReminder')||document.getElementById('addReminderEmpty');if(addReminder)addReminder.onclick=()=>showReminderEditor();
  document.querySelectorAll('[data-reminder-toggle]').forEach(b=>b.onclick=()=>{const r=(data.reminders||[]).find(x=>String(x.id)===String(b.dataset.reminderToggle));if(!r)return;r.active=r.active===false;save();render(true);toast(r.active?'Hatırlatma etkinleştirildi.':'Hatırlatma duraklatıldı.')});
  document.querySelectorAll('[data-reminder-edit]').forEach(b=>b.onclick=()=>{const r=(data.reminders||[]).find(x=>String(x.id)===String(b.dataset.reminderEdit));if(r)showReminderEditor(r)});
