@@ -106,6 +106,68 @@ jobs:
                 throw new Error(target.name + ': export icon should be SVG, not a text glyph');
               }
 
+              // Budget and savings goals
+              await page.locator('button.navitem[data-nav="profile"]').click();
+              await page.locator('button[data-nav="budget"]').click();
+              await page.locator('#budgetSpendableSummary').waitFor({ timeout: 5000 });
+              await page.locator('#addBudget').click();
+              await page.locator('#budgetAmount').fill('2500');
+              await page.locator('#budgetSave').click();
+              await page.locator('.budget-item').first().waitFor({ timeout: 5000 });
+              await page.locator('#addGoal').click();
+              await page.locator('#goalName').fill('Smoke birikim hedefi');
+              await page.locator('#goalTarget').fill('1000');
+              await page.locator('#goalSaved').fill('100');
+              await page.locator('#goalAutoAmount').fill('50');
+              await page.locator('#goalAutoDay').fill('28');
+              await page.locator('#goalSave').click();
+              await page.locator('[data-goal-contribute]').first().click();
+              await page.locator('#goalContributionAmount').fill('25');
+              await page.locator('#goalContributionSave').click();
+              await page.getByText('Smoke birikim hedefi', { exact: true }).waitFor({ timeout: 5000 });
+
+              // Account type and assets/liabilities breakdown
+              await page.locator('button.navitem[data-nav="profile"]').click();
+              await page.locator('button[data-nav="accounts"]').first().click();
+              await page.locator('#addAccount').click();
+              await page.locator('#accountName').fill('Smoke Kripto');
+              await page.locator('#accountType').selectOption('crypto');
+              await page.locator('#accountOpening').fill('500');
+              await page.locator('#accountSave').click();
+              await page.getByText('Kripto', { exact: true }).waitFor({ timeout: 5000 });
+              await page.locator('.account-summary-grid').waitFor({ timeout: 5000 });
+
+              // Reports, comparisons and forecast
+              await page.locator('button.navitem[data-nav="analysis"]').click();
+              await page.locator('[data-report-period="year"]').click();
+              await page.getByText('Önümüzdeki 3 ay tahmini', { exact: true }).waitFor({ timeout: 5000 });
+              await page.locator('[data-report-period="month"]').click();
+              await page.getByText('Önceki dönem karşılaştırması', { exact: true }).waitFor({ timeout: 5000 });
+
+              // Debt creation, due date, interest and partial repayment
+              await page.locator('button.navitem[data-nav="profile"]').click();
+              await page.locator('button[data-nav="debtOverview"]').first().click();
+              await page.locator('#addDetailedDebt').click();
+              await page.locator('#debtRecordPerson').fill('Smoke Borç Kişisi');
+              await page.locator('#debtRecordAmount').fill('500');
+              await page.locator('#debtRecordRate').fill('1');
+              await page.locator('#debtRecordDue').fill(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10));
+              await page.locator('#debtRecordSave').click();
+              await page.getByText('Smoke Borç Kişisi', { exact: true }).waitFor({ timeout: 5000 });
+              await page.locator('button[data-debt-payment]').first().click();
+              await page.locator('#debtPaymentAmount').fill('100');
+              await page.locator('#debtPaymentSave').click();
+              await page.getByText('Ödeme geçmişi (1)', { exact: true }).waitFor({ timeout: 5000 });
+
+              // Quick widget note persists through app state and render
+              await page.locator('button.navitem[data-nav="home"]').click();
+              await page.locator('#widgetNoteInput').fill('Smoke widget notu');
+              await page.locator('#saveWidgetNote').click();
+              await page.locator('#widgetNoteInput').waitFor({ timeout: 5000 });
+              if (await page.locator('#widgetNoteInput').inputValue() !== 'Smoke widget notu') {
+                throw new Error(target.name + ': widget note did not persist');
+              }
+
               const dimensions = await page.evaluate(() => ({
                 width: window.innerWidth,
                 documentWidth: document.documentElement.scrollWidth,
