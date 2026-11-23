@@ -769,14 +769,50 @@ function markTransactionDeleted(id){
  data._denge_deleted.transactions=data._denge_deleted.transactions&&typeof data._denge_deleted.transactions==='object'?data._denge_deleted.transactions:{};
  data._denge_deleted.transactions[String(id)]=new Date().toISOString();
 }
+function debtOriginIds(debt){
+ const ids=[];
+ if(debt&&debt.openingTransactionId!=null)ids.push(String(debt.openingTransactionId));
+ if(debt&&debt.id!=null){
+  ids.push('tx-'+String(debt.id));
+  ids.push(String(debt.id).replace(/^debt-/,''));
+ }
+ return [...new Set(ids)];
+}
+function findDebtOriginTransaction(debt){
+ if(!debt)return null;
+ const transactions=data.transactions||[];
+ if(debt.openingTransactionId){
+  const exact=transactions.find(t=>String(t.id)===String(debt.openingTransactionId));
+  if(exact)return exact;
+ }
+ const linked=transactions.find(t=>String(t.debtId||'')===String(debt.id)&&!isDebtPaymentTransaction(t));
+ if(linked)return linked;
+ const expected=debtDirectionOf(debt)==='payable'?'Borç Alındı':'Borç Verildi';
+ const amount=Math.abs(Number(debt.principalAmount!==undefined?debt.principalAmount:debt.amount)||0);
+ const created=String(debt.createdAt||'').slice(0,10);
+ const matches=transactions.filter(t=>{
+  if(t.type!=='debt'||isDebtPaymentTransaction(t)||t.debtId)return false;
+  if(String(t.person||'').trim().toLocaleLowerCase('tr-TR')!==String(debt.person||'').trim().toLocaleLowerCase('tr-TR'))return false;
+  const label=String(t.debtTypeLabel||t.name||'').toLocaleLowerCase('tr-TR');
+  const directionMatch=debtDirectionOf(debt)==='payable'?(label.includes('alındı')||label.includes('aldım')):(label.includes('verildi')||label.includes('verdim'));
+  if(!directionMatch||Math.abs(Number(t.amount)||0)!==amount)return false;
+  return !created||String(t.date||'').slice(0,10)===created;
+ });
+ return matches.length===1?matches[0]:null;
+}
 function pruneDeletedDebtOrigins(){
  const deleted=data._denge_deleted&&data._denge_deleted.transactions||{};
  if(!Array.isArray(data.debts))return;
  data.debts=data.debts.filter(debt=>{
-  const origin=debt&&debt.openingTransactionId||'tx-'+String(debt&&debt.id||'');
-  if(!debt||!deleted[String(origin)])return true;
-  data.transactions=(data.transactions||[]).filter(tx=>String(tx.debtId)!==String(debt.id));
-  data.reminders=(data.reminders||[]).filter(reminder=>String(reminder.id)!=='debt-due-'+String(debt.id));
+  if(!debt)return false;
+  const candidates=debtOriginIds(debt);
+  const deletedOrigin=candidates.some(id=>Object.prototype.hasOwnProperty.call(deleted,id));
+  const origin=findDebtOriginTransaction(debt);
+  if(origin){debt.openingTransactionId=String(origin.id);return true}
+  if(!deletedOrigin)return true;
+  const debtId=String(debt.id);
+  data.transactions=(data.transactions||[]).filter(tx=>String(tx.debtId||'')!==debtId);
+  data.reminders=(data.reminders||[]).filter(reminder=>String(reminder.id)!=='debt-due-'+debtId);
   return false;
  });
 }
@@ -2066,44 +2102,56 @@ function showTransactionDetail(id){
  document.getElementById('txDeleteBtn').onclick=()=>{m.remove();showTransactionDelete(id)};
 }
 async function deleteTransactionAndSync(id){
- const before=(data.transactions||[]).length;
  const deletedTx=(data.transactions||[]).find(item=>String(item.id)===String(id));
  if(!deletedTx)return;
- // Deleting an automatically generated recurring transaction marks this
- // specific month as handled, preventing automatic recreation on any device.
- if(deletedTx.recurringId!=null){
-  const month=String(deletedTx.date||'').slice(0,7);
-  const recurring=(data.recurring||[]).find(r=>String(r.id)===String(deletedTx.recurringId));
-  if(recurring&&month.length===7&&month[4]==='-'){
-   if(!Array.isArray(recurring.generatedMonths))recurring.generatedMonths=[];
-   if(!recurring.generatedMonths.includes(month))recurring.generatedMonths.push(month);
+ const debtId=deletedTx.type==='debt'?(deletedTx.debtId||null):null;
+ const debt=debtId?(data.debts||[]).find(d=>String(d.id)===String(debtId)):null;
+ if(debt){
+  const isOrigin=String(debt.openingTransactionId||'')===String(deletedTx.id)||!isDebtPaymentTransaction(deletedTx);
+  if(isOrigin){
+   const ids=(data.transactions||[]).filter(tx=>String(tx.debtId||'')===String(debt.id)).map(tx=>tx.id);
+   ids.forEach(markTransactionDeleted);
+   debtOriginIds(debt).forEach(markTransactionDeleted);
+   data.transactions=(data.transactions||[]).filter(tx=>String(tx.debtId||'')!==String(debt.id));
+   data.debts=(data.debts||[]).filter(item=>String(item.id)!==String(debt.id));
+   data.reminders=(data.reminders||[]).filter(reminder=>String(reminder.id)!=='debt-due-'+String(debt.id));
+  }else{
+   const paymentId=String(deletedTx.debtPaymentId||'');
+   const payments=Array.isArray(debt.payments)?debt.payments:[];
+   let index=paymentId?payments.findIndex(payment=>String(payment.id)===paymentId):-1;
+   if(index<0){
+    index=payments.findIndex(payment=>String(payment.date||'')===String(deletedTx.date||'')&&Math.abs(Number(payment.amount)||0)===Math.abs(Number(deletedTx.amount)||0));
+   }
+   if(index>=0)payments.splice(index,1);
+   debt.payments=payments;
+   const recalculated=recalculateDebtLedger(debt);
+   if(!recalculated.ok){showAlertCard('Ödeme silindi ancak borç bakiyesi yeniden hesaplanamadı. Kayıt korunuyor.','Borç kaydı kontrol edilmeli','error');return}
+   syncDebtReminder(debt);
+   markTransactionDeleted(deletedTx.id);
+   data.transactions=(data.transactions||[]).filter(item=>String(item.id)!==String(id));
   }
+ }else{
+  if(deletedTx.recurringId!=null){
+   const month=String(deletedTx.date||'').slice(0,7);
+   const recurring=(data.recurring||[]).find(r=>String(r.id)===String(deletedTx.recurringId));
+   if(recurring&&month.length===7&&month[4]==='-'){
+    if(!Array.isArray(recurring.generatedMonths))recurring.generatedMonths=[];
+    if(!recurring.generatedMonths.includes(month))recurring.generatedMonths.push(month);
+   }
+  }
+  markTransactionDeleted(id);
+  data.transactions=(data.transactions||[]).filter(item=>String(item.id)!==String(id));
  }
- data._denge_deleted=data._denge_deleted&&typeof data._denge_deleted==='object'?data._denge_deleted:{};
- data._denge_deleted.transactions=data._denge_deleted.transactions&&typeof data._denge_deleted.transactions==='object'?data._denge_deleted.transactions:{};
- data._denge_deleted.transactions[String(id)]=new Date().toISOString();
- data.transactions=(data.transactions||[]).filter(item=>String(item.id)!==String(id));
- if(data.transactions.length===before)return;
- save();
- render();
+ save();render();
  const cloud=window.DengeCloud&&window.DengeCloud.getStatus?window.DengeCloud.getStatus():null;
- if(!cloud||!cloud.userId){
-  toast(appText('İşlem cihazdan silindi. Cloud eşitlemesi için giriş yapmalısın.'));
-  return;
- }
- if(!navigator.onLine){
-  toast(appText('İşlem cihazdan silindi. İnternet gelince Cloud ile eşitlenecek.'));
-  return;
- }
+ if(!cloud||!cloud.userId){toast(appText('İşlem cihazdan silindi. Cloud eşitlemesi için giriş yapmalısın.'));return}
+ if(!navigator.onLine){toast(appText('İşlem cihazdan silindi. İnternet gelince Cloud ile eşitlenecek.'));return}
  try{
-  await window.DengeCloud.syncNow();
-  updateCloudPanel();
-  toast(appText('İşlem silindi ve Denge Cloud ile eşitlendi.'));
+  await window.DengeCloud.syncNow();updateCloudPanel();
+  toast(appText(debt&&String(deletedTx.id)!==String(debt.openingTransactionId)?'Ödeme silindi, borç bakiyesi güncellendi.':'İşlem silindi ve Denge Cloud ile eşitlendi.'));
  }catch(error){
   updateCloudPanel();
-  const detail=window.DengeCloud&&window.DengeCloud.getLocalizedError
-   ?window.DengeCloud.getLocalizedError(error)
-   :(error&&error.message?error.message:'');
+  const detail=window.DengeCloud&&window.DengeCloud.getLocalizedError?window.DengeCloud.getLocalizedError(error):(error&&error.message?error.message:'');
   showAlertCard(appText('İşlem silindi ancak Cloud eşitlemesi tamamlanamadı.')+(detail?' '+detail:''),'Denge Cloud','error');
  }
 }
