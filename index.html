@@ -520,11 +520,13 @@ if(!Array.isArray(data.reminders)) data.reminders=[];
 if(!Array.isArray(data.netWorthHistory)) data.netWorthHistory=[];
 delete data.migration;
 data.accounts=(data.accounts||[]).filter(a=>String(a?.name||'').trim().toLowerCase()!=='hesap belirtilmemiş');
-(data.accounts||[]).forEach(a=>{if(a.openingBalance===undefined)a.openingBalance=0;if(a.balance===undefined)a.balance=0;});
+(data.accounts||[]).forEach(a=>{if(a.openingBalance===undefined)a.openingBalance=0;if(a.balance===undefined)a.balance=0;if(!a.type)a.type=inferAccountType(a.name);});
 save();
 const currentMonth=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
 try{processRecurring()}catch(e){}
+try{processGoalContributions()}catch(e){console.warn('Otomatik hedef katkısı işlenemedi:',e)}
 let page='home',hide=false,q='',filter='all',searchOpen=false,analysisMonth=currentMonth(),analysisMode='expense',budgetMonth=currentMonth();
+let reportPeriod='month';
 let recurringView='all';
 let transactionsView='history';
 let transactionLimit=30;
@@ -645,6 +647,88 @@ function processRecurring(){
     changed=true;
   });
   if(changed) save();
+}
+
+
+function inferAccountType(name){
+ const n=String(name||'').trim().toLocaleLowerCase('tr-TR');
+ if(n.includes('kredi kart'))return 'credit';
+ if(n.includes('kripto')||n.includes('bitcoin')||n.includes('btc'))return 'crypto';
+ if(n.includes('yatırım')||n.includes('hisse')||n.includes('fon')||n.includes('altın'))return 'investment';
+ if(n.includes('birikim')||n.includes('tasarruf')||n.includes('vadeli'))return 'saving';
+ if(n.includes('banka')||n.includes('iban'))return 'bank';
+ return 'cash';
+}
+function accountTypeOf(account){const type=String(account&&account.type||'');return ['cash','bank','credit','saving','investment','crypto'].includes(type)?type:inferAccountType(account&&account.name)}
+function accountTypeLabel(type){return ({cash:'Nakit',bank:'Banka',credit:'Kredi kartı',saving:'Birikim',investment:'Yatırım',crypto:'Kripto'})[type]||'Nakit'}
+function accountBalanceSummary(){
+ const balances=computedAccountBalances();let assets=0,liabilities=0;
+ (data.accounts||[]).filter(a=>isRealAccount(a.name)).forEach(a=>{const value=Number(balances[a.name]||0);if(value>=0)assets+=value;else liabilities+=Math.abs(value)});
+ return {assets,liabilities,net:assets-liabilities,balances};
+}
+function budgetMetricsForMonth(ym){
+ const tx=(data.transactions||[]).filter(t=>String(t.date||'').slice(0,7)===ym&&t.type!=='transfer'&&t.type!=='debt');
+ const income=tx.filter(t=>Number(t.amount||0)>0).reduce((s,t)=>s+Number(t.amount||0),0);
+ const expense=-tx.filter(t=>Number(t.amount||0)<0).reduce((s,t)=>s+Number(t.amount||0),0);
+ const byCategory={};tx.filter(t=>Number(t.amount||0)<0).forEach(t=>{const k=String(t.category||'Diğer');byCategory[k]=(byCategory[k]||0)+Math.abs(Number(t.amount)||0)});
+ const entries=Object.entries(data.budgets||{}).filter(([,v])=>Number(v)>0);
+ const budgetRemaining=entries.reduce((s,[k,v])=>s+(Number(v||0)-Number(byCategory[k]||0)),0);
+ const cashflowRemaining=income-expense;
+ const available=entries.length?Math.max(0,Math.min(cashflowRemaining,budgetRemaining)):Math.max(0,cashflowRemaining);
+ const now=new Date(),isCurrent=ym===now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+ const daysLeft=isCurrent?new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate()+1:new Date(Number(ym.slice(0,4)),Number(ym.slice(5,7)),0).getDate();
+ return {income,expense,byCategory,budgetRemaining,cashflowRemaining,available,daysLeft,dailyAvailable:daysLeft>0?available/daysLeft:0};
+}
+function debtPrincipalRemaining(debt){
+ const fallback=Number(debt&&debt.remaining!==undefined?debt.remaining:debt&&debt.amount)||0;
+ return Math.max(0,Number(debt&&debt.principalRemaining!==undefined?debt.principalRemaining:fallback)||0);
+}
+function debtAccruedInterest(debt,now=new Date()){
+ const rate=Math.max(0,Number(debt&&debt.interestRateMonthly)||0);
+ const start=new Date(debt&&(debt.interestStartDate||debt.createdAt)||now);
+ if(!rate||Number.isNaN(start.getTime()))return 0;
+ const elapsed=Math.max(0,(now.getTime()-start.getTime())/(86400000*30.4375));
+ const base=Math.max(0,Number(debt&&debt.principalAmount!==undefined?debt.principalAmount:debt&&debt.amount)||0);
+ return Math.max(0,Math.round((base*rate/100*elapsed-Number(debt&&debt.interestPaid||0))*100)/100);
+}
+function debtOutstanding(debt,now=new Date()){
+ if(!debt||debt.status==='closed')return 0;
+ return Math.round((debtPrincipalRemaining(debt)+debtAccruedInterest(debt,now))*100)/100;
+}
+function syncDebtReminder(debt){
+ if(!debt||debt.id==null)return;
+ data.reminders=Array.isArray(data.reminders)?data.reminders:[];
+ const id='debt-due-'+String(debt.id);
+ let reminder=data.reminders.find(r=>String(r.id)===id);
+ if(!reminder){reminder={id,source:'debt',sourceId:String(debt.id)};data.reminders.push(reminder)}
+ reminder.title=(debt.direction==='payable'?'Borç ödeme vadesi: ':'Alacak tahsilat vadesi: ')+String(debt.person||'Kişi');
+ reminder.date=String(debt.dueDate||'');reminder.amount=debtOutstanding(debt);
+ reminder.daysBefore=Math.max(0,Number(debt.reminderDays??3));reminder.time=String(debt.reminderTime||'09:00');
+ reminder.repeatMonthly=false;reminder.active=!!debt.dueDate&&debt.status!=='closed'&&reminder.amount>0;
+ reminder.note='Denge borç/alacak vade hatırlatması';
+}
+function processGoalContributions(){
+ data.goals=Array.isArray(data.goals)?data.goals:[];
+ const today=localDateISO(),ym=today.slice(0,7),day=Number(today.slice(8,10));let changed=false;
+ data.goals.forEach(goal=>{
+  const amount=Math.max(0,Number(goal.autoContributionAmount)||0);
+  if(!amount||goal.autoContributionActive===false)return;
+  if(!Array.isArray(goal.generatedMonths)){goal.generatedMonths=[];changed=true}
+  if(goal.generatedMonths.includes(ym))return;
+  const dueDay=Math.min(28,Math.max(1,Number(goal.autoContributionDay||1))),createdDay=String(goal.createdAt||today).slice(0,10);
+  const dueDate=ym+'-'+String(dueDay).padStart(2,'0');
+  if(createdDay>dueDate){goal.generatedMonths.push(ym);changed=true;return}
+  if(day<dueDay)return;
+  const target=Math.max(0,Number(goal.targetAmount||goal.target)||0),saved=Math.max(0,Number(goal.savedAmount??goal.saved??0));
+  const contribution=Math.min(amount,Math.max(0,target-saved));
+  if(contribution>0){
+   goal.savedAmount=Math.round((saved+contribution)*100)/100;
+   goal.contributions=Array.isArray(goal.contributions)?goal.contributions:[];
+   goal.contributions.push({id:'goal-auto-'+goal.id+'-'+ym,amount:contribution,date:today,automatic:true});
+  }
+  goal.generatedMonths.push(ym);changed=true;
+ });
+ if(changed)save();
 }
 
 function isRealAccount(name){return String(name||'').trim()!==''&&String(name||'').trim().toLowerCase()!=='hesap belirtilmemiş'}
