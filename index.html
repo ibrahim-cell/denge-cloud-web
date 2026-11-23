@@ -534,6 +534,7 @@ if(!Array.isArray(data.netWorthHistory)) data.netWorthHistory=[];
 delete data.migration;
 data.accounts=(data.accounts||[]).filter(a=>String(a?.name||'').trim().toLowerCase()!=='hesap belirtilmemiş');
 (data.accounts||[]).forEach(a=>{if(a.openingBalance===undefined)a.openingBalance=0;if(a.balance===undefined)a.balance=0;if(!a.type)a.type=inferAccountType(a.name);});
+(data.debts||[]).forEach(d=>{if(d&&d.dueDate)syncDebtReminder(d)});
 save();
 const currentMonth=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
 try{processRecurring()}catch(e){}
@@ -773,12 +774,26 @@ function syncNativeHomeWidget(){
  const monthTx=(data.transactions||[]).filter(t=>String(t.date||'').slice(0,7)===month&&t.type!=='transfer'&&t.type!=='debt');
  const income=monthTx.filter(t=>Number(t.amount||0)>0).reduce((sum,t)=>sum+Number(t.amount||0),0);
  const expense=-monthTx.filter(t=>Number(t.amount||0)<0).reduce((sum,t)=>sum+Number(t.amount||0),0);
+ const accountSummary=accountBalanceSummary(),budgetSummary=budgetMetricsForMonth(month);
+ const receivables=(data.debts||[]).filter(d=>d&&d.status!=='closed'&&debtDirectionOf(d)==='receivable').reduce((s,d)=>s+debtOutstanding(d),0);
+ const payables=(data.debts||[]).filter(d=>d&&d.status!=='closed'&&debtDirectionOf(d)==='payable').reduce((s,d)=>s+debtOutstanding(d),0);
+ const activeGoals=(data.goals||[]).filter(g=>g&&Number(g.targetAmount||g.target)>0);
+ const goalTarget=activeGoals.reduce((s,g)=>s+Math.max(0,Number(g.targetAmount||g.target)||0),0);
+ const goalSaved=activeGoals.reduce((s,g)=>s+Math.max(0,Number(g.savedAmount??g.saved??0)||0),0);
  const payload={
   balance:money(totalRealAccountBalance()),
   cash:money(Number(balances.Nakit||0)),
   bank:money(Number(balances.Banka||0)),
   income:money(income),
   expense:money(expense),
+  assets:money(accountSummary.assets),
+  liabilities:money(accountSummary.liabilities),
+  netWorth:money(accountSummary.net),
+  availableToSpend:money(budgetSummary.available),
+  debtReceivables:money(receivables),
+  debtPayables:money(payables),
+  goalsCompleted:activeGoals.filter(g=>Number(g.savedAmount??g.saved??0)>=Number(g.targetAmount||g.target)).length,
+  goalProgressPercent:goalTarget?Math.round(goalSaved/goalTarget*100):0,
   currency:String(data.settings.currency||'TRY'),
   theme:effectiveTheme()==='Koyu'?'dark':'light',
   updatedAt:new Date().toISOString()
@@ -948,8 +963,8 @@ function analysis(){
   return '<div class="report-category-trend"><b>'+esc(category)+'</b><div class="report-month-bars">'+values.map(v=>'<span title="'+esc(v.key)+' · '+esc(money(v.amount))+'" style="height:'+Math.max(3,v.amount/max*100)+'%"></span>').join('')+'</div><small>'+money(values[5].amount)+' · bu ay</small></div>';
  }).join('');
  const now=new Date(),currentKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
- const forecastBase=[-3,-2,-1].map(offset=>monthMetrics(addMonths(currentKey,offset)).expense);
- const knownMonths=forecastBase.filter(v=>v>0||v===0).length,forecastAverage=forecastBase.reduce((s,v)=>s+v,0)/3,forecastTotal=forecastAverage*3;
+ const forecastBase=[-3,-2,-1].map(offset=>{const m=monthMetrics(addMonths(currentKey,offset));return {expense:m.expense,hasData:m.tx.length>0}});
+ const observed=forecastBase.filter(v=>v.hasData),knownMonths=observed.length,forecastAverage=knownMonths?observed.reduce((s,v)=>s+v.expense,0)/knownMonths:0,forecastTotal=forecastAverage*3;
  const forecastRows=[1,2,3].map(n=>'<div class="report-year-row"><span>'+esc(monthName(addMonths(currentKey,n)))+'</span><strong>'+money(forecastAverage)+'</strong><small>Tahmin</small></div>').join('');
  const modeLabel=analysisMode==='income'?'Toplam Gelir':analysisMode==='net'?'Net':'Toplam Gider',amountClass=analysisMode==='income'?'income':analysisMode==='expense'?'expense':'';
  return '<div class="analysis-page">'
@@ -1654,6 +1669,10 @@ function syncNativeFinanceSchedule(){
   recurringReminders:data.settings.recurringReminders!==false,
   recurringReminderDays:Number(data.settings.recurringReminderDays??1),
   recurringReminderTime:data.settings.recurringReminderTime||'09:00',
+  debtDueReminders:data.settings.debtDueReminders!==false,
+  debtReminderDays:Number(data.settings.debtReminderDays??3),
+  noSpendReminder:!!data.settings.noSpendReminder,
+  noSpendReminderTime:data.settings.noSpendReminderTime||'20:00',
   budgetMonth:budgetMonthKey,
   budgetAlert80:data.settings.budgetAlert80!==false,
   budgetAlert100:data.settings.budgetAlert100!==false,
@@ -1665,32 +1684,59 @@ function syncNativeFinanceSchedule(){
 }
 function checkBudgetThresholdAlerts(){
  if(!data.settings.notifications||!notificationPermissionGranted())return;
- // Native APK budget thresholds are evaluated by the persistent WorkManager job.
+ // Native APK uses its persistent scheduler; debt reminders are included in its payload.
  if(isNativeAndroidBridge()&&typeof AndroidBridge.syncFinanceReminderSchedule==='function')return;
- const dateNow=new Date(),month=dateNow.getFullYear()+'-'+String(dateNow.getMonth()+1).padStart(2,'0'),spent={};
- (data.transactions||[]).forEach(t=>{if(String(t.date||'').slice(0,7)!==month||t.type==='transfer'||t.type==='debt')return;const amount=Number(t.amount)||0;if(amount<0){const cat=String(t.category||'Diğer');spent[cat]=(spent[cat]||0)+Math.abs(amount)}});
- let sent={};try{sent=JSON.parse(localStorage.getItem('denge-budget-alert-state-v1')||'{}')||{}}catch(_){}
- let changed=false;
+ const now=new Date(),today=localDateISO(),month=today.slice(0,7),spent={},format=value=>new Intl.NumberFormat('tr-TR',{style:'currency',currency:data.settings.currency||'TRY'}).format(Number(value)||0);
+ (data.transactions||[]).forEach(t=>{
+  if(String(t.date||'').slice(0,7)!==month||t.type==='transfer'||t.type==='debt')return;
+  const amount=Number(t.amount)||0;if(amount<0){const category=String(t.category||'Diğer');spent[category]=(spent[category]||0)+Math.abs(amount)}
+ });
+ let budgetSent={};try{budgetSent=JSON.parse(localStorage.getItem('denge-budget-alert-state-v1')||'{}')||{}}catch(_){}
+ let budgetChanged=false;
  Object.entries(data.budgets||{}).forEach(([category,limitValue])=>{
   const limit=Number(limitValue)||0;if(limit<=0)return;
-  const pct=(spent[category]||0)/limit*100;
-  const keyBase=month+'|'+category+'|';
+  const pct=(spent[category]||0)/limit*100,keyBase=month+'|'+category+'|';
   if(pct>=100&&data.settings.budgetAlert100!==false){
-   if(data.settings.budgetAlert80!==false)sent[keyBase+'80']=true;
-   if(!sent[keyBase+'100']){
-    const sentNow=sendFinanceNotification('Bütçe aşıldı: '+category,new Intl.NumberFormat('tr-TR',{style:'currency',currency:data.settings.currency||'TRY'}).format(spent[category]||0)+' / '+new Intl.NumberFormat('tr-TR',{style:'currency',currency:data.settings.currency||'TRY'}).format(limit)+' harcandı.','budget-'+month+'-'+category+'-100');
-    if(sentNow)sent[keyBase+'100']=true;
-    changed=changed||sentNow;
+   if(data.settings.budgetAlert80!==false)budgetSent[keyBase+'80']=true;
+   if(!budgetSent[keyBase+'100']){
+    const sent=sendFinanceNotification('Bütçe aşıldı: '+category,format(spent[category]||0)+' / '+format(limit)+' harcandı.','budget-'+month+'-'+category+'-100');
+    if(sent)budgetSent[keyBase+'100']=true;budgetChanged=budgetChanged||sent;
    }
-  }else if(pct>=80&&data.settings.budgetAlert80!==false&&!sent[keyBase+'80']){
-   const sentNow=sendFinanceNotification('Bütçe limitine yaklaşıyor: '+category,new Intl.NumberFormat('tr-TR',{style:'currency',currency:data.settings.currency||'TRY'}).format(spent[category]||0)+' / '+new Intl.NumberFormat('tr-TR',{style:'currency',currency:data.settings.currency||'TRY'}).format(limit)+' harcandı.','budget-'+month+'-'+category+'-80');
-   if(sentNow)sent[keyBase+'80']=true;
-   changed=changed||sentNow;
+  }else if(pct>=80&&data.settings.budgetAlert80!==false&&!budgetSent[keyBase+'80']){
+   const sent=sendFinanceNotification('Bütçe limitine yaklaşıyor: '+category,format(spent[category]||0)+' / '+format(limit)+' harcandı.','budget-'+month+'-'+category+'-80');
+   if(sent)budgetSent[keyBase+'80']=true;budgetChanged=budgetChanged||sent;
   }
  });
- if(changed){try{localStorage.setItem('denge-budget-alert-state-v1',JSON.stringify(sent))}catch(_){}}
+ if(budgetChanged){try{localStorage.setItem('denge-budget-alert-state-v1',JSON.stringify(budgetSent))}catch(_){}}
+ if(data.settings.debtDueReminders!==false){
+  let dueSent={};try{dueSent=JSON.parse(localStorage.getItem('denge-debt-due-alert-state-v1')||'{}')||{}}catch(_){}
+  let dueChanged=false;const todayDate=new Date(today+'T00:00:00');
+  (data.debts||[]).filter(d=>d&&d.status!=='closed'&&d.dueDate&&debtOutstanding(d)>0).forEach(debt=>{
+   const dueDate=new Date(String(debt.dueDate).slice(0,10)+'T00:00:00');if(Number.isNaN(dueDate.getTime()))return;
+   const daysUntil=Math.round((dueDate-todayDate)/86400000),lead=Math.max(0,Number(debt.reminderDays??data.settings.debtReminderDays??3));
+   if(daysUntil>lead)return;
+   const phase=daysUntil<0?'overdue':'due',key=String(debt.id)+'|'+String(debt.dueDate)+'|'+phase;
+   if(dueSent[key])return;
+   const title=phase==='overdue'?'Borç / alacak vadesi geçti':'Borç / alacak vadesi yaklaşıyor';
+   const body=(debt.person||'Kişi')+' · '+(debtDirectionOf(debt)==='payable'?'Ödenecek ':'Tahsil edilecek ')+format(debtOutstanding(debt))+(phase==='overdue'?' · Vade '+Math.abs(daysUntil)+' gün geçti':' · Vade '+(daysUntil===0?'bugün':daysUntil+' gün sonra'));
+   const sent=sendFinanceNotification(title,body,'debt-due-'+debt.id+'-'+phase);
+   if(sent){dueSent[key]=true;dueChanged=true}
+  });
+  if(dueChanged){try{localStorage.setItem('denge-debt-due-alert-state-v1',JSON.stringify(dueSent))}catch(_){}}
+ }
+ if(data.settings.noSpendReminder){
+  const raw=String(data.settings.noSpendReminderTime||'20:00'),parts=/^(\d{2}):(\d{2})$/.exec(raw);
+  const reached=parts&& (now.getHours()*60+now.getMinutes()>=Number(parts[1])*60+Number(parts[2]));
+  const spentToday=(data.transactions||[]).some(t=>String(t.date||'').slice(0,10)===today&&t.type==='expense'&&Number(t.amount||0)<0);
+  if(reached&&!spentToday){
+   let last='';try{last=localStorage.getItem('denge-soft-nospend-v1')||''}catch(_){}
+   if(last!==today){
+    const sent=sendFinanceNotification('Bugün harcama kaydı yok','Bugün için gider kaydı görünmüyor. Bu yalnızca nazik bir hatırlatmadır.','no-spend-'+today);
+    if(sent){try{localStorage.setItem('denge-soft-nospend-v1',today)}catch(_){}}
+   }
+  }
+ }
 }
-
 function notificationPermissionGranted(){
  if(isNativeAndroidBridge()&&typeof AndroidBridge.hasNotificationPermission==='function'){try{return AndroidBridge.hasNotificationPermission()}catch(e){return false}}
  return typeof Notification!=='undefined'&&Notification.permission==='granted';
