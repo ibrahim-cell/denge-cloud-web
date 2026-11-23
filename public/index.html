@@ -270,6 +270,8 @@
 .tx-detail-amount{font-size:28px;font-weight:850;letter-spacing:-.8px;margin:4px 0 18px}
 .tx-detail-amount.income{color:#159866}.tx-detail-amount.expense{color:#df5869}
 .tx-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tx-detail-amount.transfer{color:#6256df}
+.dark .tx-detail-amount.transfer{color:#aaa0ff}
 .tx-detail-cell{padding:12px;border-radius:14px;background:#f0eff6;border:1px solid #e7e5ef}
 .tx-detail-cell small{display:block;color:#9299a9;font-size:9px;margin-bottom:4px}.tx-detail-cell b{display:block;color:#283044;font-size:11px}
 .tx-modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:17px}
@@ -862,20 +864,31 @@ function processGoalContributions(){
 }
 
 function isRealAccount(name){return String(name||'').trim()!==''&&String(name||'').trim().toLowerCase()!=='hesap belirtilmemiş'}
+function transferAmountOf(transaction){
+ const raw=transaction&&transaction.transferAmount!==undefined&&transaction.transferAmount!==null&&transaction.transferAmount!==''?transaction.transferAmount:transaction&&transaction.amount;
+ const amount=Number(raw);
+ return Number.isFinite(amount)?Math.abs(amount):0;
+}
+function transferAccountsOf(transaction){
+ return {
+  from:String(transaction&&(transaction.fromAccount||transaction.sourceAccount)||''),
+  to:String(transaction&&(transaction.toAccount||transaction.targetAccount||transaction.account)||'')
+ };
+}
 function computedAccountBalances(){
  const out={};
  (data.accounts||[]).forEach(a=>{const name=String(a.name||'');out[name]=Number(a.openingBalance!==undefined?a.openingBalance:((data.migration&&data.migration.sourceApp)?0:Number(a.balance||0)))||0});
  (data.transactions||[]).forEach(t=>{
-   const type=t.type||((t.sourceType||'').toLowerCase()==='transfer'?'transfer':'');
-   if(type==='transfer'){
-     const amt=Math.abs(Number(t.transferAmount!==undefined?t.transferAmount:t.amount||0));
-     const from=String(t.fromAccount||''); const to=String(t.toAccount||'');
-     if(from&&out[from]!==undefined) out[from]-=amt;
-     if(to&&out[to]!==undefined) out[to]+=amt;
-     return;
-   }
-   const account=String(t.account||'');
-   if(account&&out[account]!==undefined) out[account]+=Number(t.amount||0);
+  const type=t.type||((t.sourceType||'').toLowerCase()==='transfer'?'transfer':'');
+  if(type==='transfer'){
+   const amount=transferAmountOf(t);
+   const accounts=transferAccountsOf(t);
+   if(accounts.from&&out[accounts.from]!==undefined)out[accounts.from]-=amount;
+   if(accounts.to&&out[accounts.to]!==undefined)out[accounts.to]+=amount;
+   return;
+  }
+  const account=String(t.account||'');
+  if(account&&out[account]!==undefined)out[account]+=Number(t.amount||0);
  });
  return out;
 }
@@ -973,7 +986,15 @@ function __applyImportedBackup(raw){try{
  }catch(e){showAlertCard('Yedek dosyası geçersiz.','Yedek yüklenemedi','error');return false}}
 window.__dengeRestoreFromText=__applyImportedBackup;
 function nav(p){page=p;render(true);scrollTo(0,0)}
-function txRow(t,del=false){const isTransfer=t.type==='transfer',isDebt=t.type==='debt';const cls=isTransfer?'transfer':isDebt?'debt':(t.amount>0?'income':'expense');const icon=isTransfer?'⇄':isDebt?'₺':getCategoryIcon(t.category);const meta=isTransfer?(esc(t.fromAccount||'')+' → '+esc(t.toAccount||'')):(isDebt?(esc(t.person||'')+' · '+esc(t.debtTypeLabel||'Borç/Alacak')):(esc(t.category||'')+' · '+esc(t.time||'')));const amountLabel=isTransfer?money(t.transferAmount||0):money(Math.abs(Number(t.amount)||0));return '<div class="tx-action"><div class="txrow '+cls+'" data-detail="'+esc(String(t.id))+'"><div class="caticon">'+icon+'</div><div class="txmain"><b>'+esc(t.name||t.category||'Transfer')+'</b><span>'+meta+'</span></div><strong class="'+cls+'">'+(isTransfer?'':(t.amount>0?'+':'-'))+amountLabel+'</strong></div></div>'}
+function txRow(t,del=false){
+ const isTransfer=t.type==='transfer',isDebt=t.type==='debt';
+ const cls=isTransfer?'transfer':isDebt?'debt':(t.amount>0?'income':'expense');
+ const icon=isTransfer?'⇄':isDebt?'₺':getCategoryIcon(t.category);
+ const accounts=isTransfer?transferAccountsOf(t):null;
+ const meta=isTransfer?(esc(accounts.from||'—')+' → '+esc(accounts.to||'—')):(isDebt?(esc(t.person||'')+' · '+esc(t.debtTypeLabel||'Borç/Alacak')):(esc(t.category||'')+' · '+esc(t.time||'')));
+ const amountLabel=isTransfer?money(transferAmountOf(t)):money(Math.abs(Number(t.amount)||0));
+ return '<div class="tx-action"><div class="txrow '+cls+'" data-detail="'+esc(String(t.id))+'"><div class="caticon">'+icon+'</div><div class="txmain"><b>'+esc(t.name||t.category||'Transfer')+'</b><span>'+meta+'</span></div><strong class="'+cls+'">'+(isTransfer?'':(t.amount>0?'+':'-'))+amountLabel+'</strong></div></div>';
+}
 function header(title,back,add){return '<div class="header"><button class="iconbtn" data-nav="'+(back||'')+'">'+(back?'‹':'')+'</button><h1>'+title+'</h1>'+(add?'<button class="round" data-nav="add">＋</button>':'<span></span>')+'</div>'}
 function quickAddFab(){return '<button type="button" class="quick-add-fab" id="quickAddFab" aria-label="Hızlı işlem ekle" title="Hızlı işlem ekle">'+sicon('plus')+'</button>'}
 function bottom(){return '<nav class="bottom" aria-label="Ana menü"><button class="navitem '+(page==='home'?'active':'')+'" data-nav="home"><span class="navicon">'+navSvg('home')+'</span><span>Ana Sayfa</span></button><button class="navitem '+(page==='transactions'?'active':'')+'" data-nav="transactions"><span class="navicon">'+navSvg('transactions')+'</span><span>İşlemler</span></button><button class="navitem '+(page==='analysis'?'active':'')+'" data-nav="analysis"><span class="navicon">'+navSvg('analysis')+'</span><span>Analiz</span></button><button class="navitem '+(page==='profile'?'active':'')+'" data-nav="profile"><span class="navicon">'+navSvg('profile')+'</span><span>Profil</span></button></nav>'}
@@ -2186,17 +2207,27 @@ function showDebtTransactionDetail(id,tx,debt){
  modal.querySelector('#txDeleteBtn').onclick=()=>{close();showTransactionDelete(id)};
 }
 function showTransactionDetail(id){
- const t=findTx(id); if(!t)return;
+ const t=findTx(id);if(!t)return;
  if(t.type==='debt'){
   const debt=findDebtForTransaction(t);
   if(debt){showDebtTransactionDetail(id,t,debt);return}
  }
- const html='<div class="tx-detail-modal" id="txDetailModal"><div class="tx-modal-card"><div class="tx-modal-head"><span class="tx-modal-icon">'+sicon(t.amount>=0?'wallet':'tag')+'</span><div><h3>'+esc(t.name||t.category)+'</h3><p>'+esc(t.category||'')+' · '+esc(t.date||'')+' · '+esc(t.time||'')+'</p></div><button class="tx-close" id="txDetailClose">×</button></div><div class="tx-detail-amount '+(t.amount>=0?'income':'expense')+'">'+(t.amount>=0?'+':'-')+money(Math.abs(Number(t.amount)||0))+'</div><div class="tx-detail-grid"><div class="tx-detail-cell"><small>Kategori</small><b>'+esc(t.category||'—')+'</b></div><div class="tx-detail-cell"><small>Hesap</small><b>'+esc(t.account||'—')+'</b></div><div class="tx-detail-cell"><small>Tarih</small><b>'+esc(t.date||'—')+'</b></div><div class="tx-detail-cell"><small>Saat</small><b>'+esc(t.time||'—')+'</b></div></div><div class="tx-modal-actions"><button class="tx-edit-btn" id="txEditBtn">'+sicon('edit')+' Düzenle</button><button class="tx-delete-btn" id="txDeleteBtn">'+sicon('trash')+' Sil</button></div></div></div>';
+ const isTransfer=t.type==='transfer';
+ const accounts=isTransfer?transferAccountsOf(t):null;
+ const amount=isTransfer?transferAmountOf(t):Math.abs(Number(t.amount)||0);
+ const amountClass=isTransfer?'transfer':(Number(t.amount)>=0?'income':'expense');
+ const amountPrefix=isTransfer?'':(Number(t.amount)>=0?'+':'−');
+ const headerCategory=isTransfer?'Transfer':(t.category||'');
+ const detailGrid=isTransfer
+  ?'<div class="tx-detail-grid"><div class="tx-detail-cell"><small>Kaynak hesap</small><b>'+esc(accounts.from||'—')+'</b></div><div class="tx-detail-cell"><small>Hedef hesap</small><b>'+esc(accounts.to||'—')+'</b></div><div class="tx-detail-cell"><small>Tarih</small><b>'+esc(t.date||'—')+'</b></div><div class="tx-detail-cell"><small>Saat</small><b>'+esc(t.time||'—')+'</b></div></div>'
+  :'<div class="tx-detail-grid"><div class="tx-detail-cell"><small>Kategori</small><b>'+esc(t.category||'—')+'</b></div><div class="tx-detail-cell"><small>Hesap</small><b>'+esc(t.account||'—')+'</b></div><div class="tx-detail-cell"><small>Tarih</small><b>'+esc(t.date||'—')+'</b></div><div class="tx-detail-cell"><small>Saat</small><b>'+esc(t.time||'—')+'</b></div></div>';
+ const html='<div class="tx-detail-modal" id="txDetailModal"><div class="tx-modal-card"><div class="tx-modal-head"><span class="tx-modal-icon">'+sicon(isTransfer?'transfer':(t.amount>=0?'wallet':'tag'))+'</span><div><h3>'+esc(t.name||headerCategory)+'</h3><p>'+esc(headerCategory)+' · '+esc(t.date||'')+' · '+esc(t.time||'')+'</p></div><button class="tx-close" id="txDetailClose">×</button></div><div class="tx-detail-amount '+amountClass+'">'+amountPrefix+money(amount)+'</div>'+detailGrid+'<div class="tx-modal-actions"><button class="tx-edit-btn" id="txEditBtn">'+sicon('edit')+' Düzenle</button><button class="tx-delete-btn" id="txDeleteBtn">'+sicon('trash')+' Sil</button></div></div></div>';
  document.body.insertAdjacentHTML('beforeend',html);
- const m=document.getElementById('txDetailModal'); document.getElementById('txDetailClose').onclick=()=>m.remove();
- m.onclick=e=>{if(e.target===m)m.remove()};
- document.getElementById('txEditBtn').onclick=()=>{m.remove();showEditTransaction(id)};
- document.getElementById('txDeleteBtn').onclick=()=>{m.remove();showTransactionDelete(id)};
+ const modal=document.getElementById('txDetailModal');
+ document.getElementById('txDetailClose').onclick=()=>modal.remove();
+ modal.onclick=e=>{if(e.target===modal)modal.remove()};
+ document.getElementById('txEditBtn').onclick=()=>{modal.remove();showEditTransaction(id)};
+ document.getElementById('txDeleteBtn').onclick=()=>{modal.remove();showTransactionDelete(id)};
 }
 async function deleteTransactionAndSync(id){
  const deletedTx=(data.transactions||[]).find(item=>String(item.id)===String(id));
@@ -2266,13 +2297,55 @@ function showTransactionDelete(id){
  const t=findTx(id);if(!t)return;
  const debt=t.type==='debt'?findDebtForTransaction(t):null;
  const payment=debt&&isDebtPaymentTransaction(t);
- const description=payment?'Bu ödeme hareketi silinecek ve kalan borç yeniden hesaplanacak.':debt?'Bu borç / alacak kaydı ve bağlı tüm ödeme hareketleri silinecek. Hesap bakiyeleri de güncellenecek.':(t.name||t.category)+' işlemini silmek istediğine emin misin? Bu işlem geri alınamaz.';
- const title=payment?'Ödeme hareketini sil':debt?'Borç / alacak kaydını sil':'İşlemi sil';
+ const isTransfer=t.type==='transfer';
+ const description=payment?'Bu ödeme hareketi silinecek ve kalan borç yeniden hesaplanacak.':debt?'Bu borç / alacak kaydı ve bağlı tüm ödeme hareketleri silinecek. Hesap bakiyeleri de güncellenecek.':isTransfer?'Bu transfer silinecek. Kaynak ve hedef hesap bakiyeleri işlem kayıtlarından otomatik olarak yeniden hesaplanacak.':(t.name||t.category)+' işlemini silmek istediğine emin misin? Bu işlem geri alınamaz.';
+ const title=payment?'Ödeme hareketini sil':debt?'Borç / alacak kaydını sil':isTransfer?'Transferi sil':'İşlemi sil';
  const html='<div class="alert-card-wrap" id="txDeleteWrap"><div class="alert-card"><div class="alert-icon">'+sicon('trash')+'</div><h3>'+title+'</h3><p>'+esc(description)+'</p><div class="alert-actions"><button class="alert-cancel" id="txDelCancel">Vazgeç</button><button class="alert-danger" id="txDelOk">Sil</button></div></div></div>';
- document.body.insertAdjacentHTML('beforeend',html);const w=document.getElementById('txDeleteWrap');document.getElementById('txDelCancel').onclick=()=>w.remove();document.getElementById('txDelOk').onclick=()=>{w.remove();deleteTransactionAndSync(id)};w.onclick=e=>{if(e.target===w)w.remove()}
+ document.body.insertAdjacentHTML('beforeend',html);const modal=document.getElementById('txDeleteWrap');
+ document.getElementById('txDelCancel').onclick=()=>modal.remove();
+ document.getElementById('txDelOk').onclick=()=>{modal.remove();deleteTransactionAndSync(id)};
+ modal.onclick=e=>{if(e.target===modal)modal.remove()};
 }
 function showEditTransaction(id){
  const t=findTx(id);if(!t)return;
+ if(t.type==='transfer'){
+  const accountNames=[...new Set((data.accounts||[]).map(account=>String(account&&account.name||'').trim()).filter(Boolean))];
+  const current=transferAccountsOf(t);
+  const from=accountNames.includes(current.from)?current.from:(accountNames[0]||'');
+  const to=accountNames.includes(current.to)&&current.to!==from?current.to:(accountNames.find(name=>name!==from)||'');
+  const accountOptions=selected=>accountNames.map(name=>'<option value="'+esc(name)+'" '+(name===selected?'selected':'')+'>'+esc(name)+'</option>').join('');
+  const transferAmount=transferAmountOf(t);
+  const html='<div class="tx-detail-modal" id="txEditModal"><div class="tx-modal-card"><div class="tx-modal-head"><span class="tx-modal-icon">'+sicon('transfer')+'</span><div><h3>Transferi düzenle</h3><p>Kaynak, hedef hesap ve tutarı güncelle.</p></div><button class="tx-close" id="txEditClose">×</button></div><div class="tx-edit-form"><label>Transfer tutarı</label><input id="editTransferAmount" class="edit-field" inputmode="decimal" value="'+esc(String(transferAmount))+'"><label>Açıklama</label><input id="editTransferName" class="edit-field" value="'+esc(t.name||'Transfer')+'"><label>Kaynak hesap</label><select id="editTransferFrom" class="edit-field">'+accountOptions(from)+'</select><label>Hedef hesap</label><select id="editTransferTo" class="edit-field">'+accountOptions(to)+'</select><label>Tarih</label><input id="editTransferDate" class="edit-field" type="date" value="'+esc(t.date||localDateISO())+'"><div class="tx-edit-actions"><button class="tx-cancel" id="txEditCancel">Vazgeç</button><button class="tx-save" id="txEditSave">Kaydet</button></div></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+  const modal=document.getElementById('txEditModal');
+  const close=()=>modal.remove();
+  document.getElementById('txEditClose').onclick=close;
+  document.getElementById('txEditCancel').onclick=close;
+  modal.onclick=e=>{if(e.target===modal)close()};
+  document.getElementById('txEditSave').onclick=()=>{
+   const amount=Number(String(document.getElementById('editTransferAmount').value).trim().replace(',','.'));
+   const name=document.getElementById('editTransferName').value.trim();
+   const fromAccount=document.getElementById('editTransferFrom').value;
+   const toAccount=document.getElementById('editTransferTo').value;
+   const date=document.getElementById('editTransferDate').value;
+   if(!Number.isFinite(amount)||amount<=0){showAlertCard('Geçerli bir transfer tutarı girin.','Geçersiz tutar','error');return}
+   if(!fromAccount||!toAccount||!accountNames.includes(fromAccount)||!accountNames.includes(toAccount)){showAlertCard('Kaynak ve hedef hesapları seçin.','Hesap seçilmedi','error');return}
+   if(fromAccount===toAccount){showAlertCard('Kaynak ve hedef hesap aynı olamaz.','Transfer güncellenemedi','error');return}
+   if(!date){showAlertCard('Tarih seçin.','Tarih gerekli','error');return}
+   t.type='transfer';
+   t.amount=0;
+   t.transferAmount=Math.round(amount*100)/100;
+   t.name=name||'Transfer';
+   t.category='Transfer';
+   t.fromAccount=fromAccount;
+   t.toAccount=toAccount;
+   t.account=toAccount;
+   t.date=date;
+   save();close();render();
+   toast('Transfer güncellendi. Hesap bakiyeleri yeniden hesaplandı.');
+  };
+  return;
+ }
  const type=t.amount>=0?'income':'expense'; const cats=data.categories[type]||[];
  const html='<div class="tx-detail-modal" id="txEditModal"><div class="tx-modal-card"><div class="tx-modal-head"><span class="tx-modal-icon">'+sicon('edit')+'</span><div><h3>İşlemi düzenle</h3><p>Bilgilerini güncelle.</p></div><button class="tx-close" id="txEditClose">×</button></div><div class="tx-edit-form"><label>Tutar</label><input id="editAmount" class="edit-field" inputmode="decimal" value="'+esc(String(Math.abs(Number(t.amount)||0)))+'"><label>Açıklama</label><input id="editName" class="edit-field" value="'+esc(t.name||'')+'"><label>Kategori</label><button type="button" id="editCategory" class="edit-field edit-picker-trigger"><span>'+esc(t.category||cats[0]||'Kategori seç')+'</span><span class="chev">›</span></button><label>Hesap</label><button type="button" id="editAccount" class="edit-field edit-picker-trigger"><span>'+esc(t.account||data.accounts[0]?.name||'Hesap seç')+'</span><span class="chev">›</span></button><label>Tarih</label><input id="editDate" class="edit-field" type="date" value="'+esc(t.date||localDateISO())+'"><div class="tx-edit-actions"><button class="tx-cancel" id="txEditCancel">Vazgeç</button><button class="tx-save" id="txEditSave">Kaydet</button></div></div></div></div>';
  document.body.insertAdjacentHTML('beforeend',html);
@@ -2410,7 +2483,7 @@ const noSpendReminder=document.getElementById('noSpendReminder');if(noSpendRemin
 const noSpendReminderTime=document.getElementById('noSpendReminderTime');if(noSpendReminderTime)noSpendReminderTime.onchange=()=>{data.settings.noSpendReminderTime=noSpendReminderTime.value||'20:00';save();toast('Nazik hatırlatma saati güncellendi.')};const currency=document.getElementById('currency');if(currency)currency.onclick=()=>showCurrency();const security=document.getElementById('security');if(security)security.onclick=()=>{if(data.settings.security){showPinConfirm('Güvenlik kilidini kapat','PIN korumasını kapatmak için mevcut PIN’ini gir.',pin=>{data.settings.security=false;data.settings.pin='';save();render();toast('Güvenlik kilidi kapatıldı.')})}else{showPinCreate()}};const clearData=document.getElementById('clearData');if(clearData)clearData.onclick=()=>showClearDataConfirm();const exportData=document.getElementById('exportData');if(exportData)exportData.onclick=()=>{if(window.__dengeExportTools)window.__dengeExportTools.open();else showAlertCard('Dışa aktarma modülü yüklenemedi. Sayfayı yenileyin.','Denge','error')};const backup=document.getElementById('backup');if(backup)backup.onclick=()=>{const json=JSON.stringify(data,null,2);if(window.AndroidBridge&&AndroidBridge.exportBackup){AndroidBridge.exportBackup(json)}else{const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='denge-yedek.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}};const restore=document.getElementById('restore'),restoreFile=document.getElementById('restoreFile');if(restore&&restoreFile){restore.onclick=()=>{if(window.AndroidBridge&&AndroidBridge.openRestore){AndroidBridge.openRestore()}else restoreFile.click()};restoreFile.onchange=()=>{const file=restoreFile.files&&restoreFile.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{window.__dengeRestoreFromText(String(r.result||''))};r.readAsText(file)}}document.querySelectorAll('[data-account-delete]').forEach(b=>b.onclick=()=>{const name=b.dataset.accountDelete;const used=(data.transactions||[]).some(t=>t.account===name||t.fromAccount===name||t.toAccount===name);if(used){showAlertCard('Bu hesapta kayıtlı işlemler var. Önce bu işlemleri başka hesaba taşıyın veya silin.','Hesap silinemedi','error');return}data.accounts=(data.accounts||[]).filter(a=>String(a.name)!==String(name));save();render();toast('Hesap silindi.')});const addAccount=document.getElementById('addAccount');if(addAccount)addAccount.onclick=()=>showAccountModal();const saveTx=document.getElementById('saveTx');if(saveTx){let type=window.homeAddType||'expense';window.homeAddType=null;const normal=document.getElementById('normalFields'),tf=document.getElementById('transferFields'),df=document.getElementById('debtFields');const setMode=m=>{type=m;document.querySelectorAll('.four-types .type-btn').forEach(x=>x.classList.remove('active'));document.getElementById(m==='income'?'incomeBtn':m==='expense'?'expenseBtn':m==='transfer'?'transferBtn':'debtBtn').classList.add('active');normal.hidden=m==='transfer'||m==='debt';tf.hidden=m!=='transfer';df.hidden=m!=='debt';saveTx.textContent=m==='transfer'?'Transferi Kaydet':m==='debt'?'Borç Kaydet':'Kaydet'};['income','expense','transfer','debt'].forEach(m=>{const x=document.getElementById(m==='income'?'incomeBtn':m==='expense'?'expenseBtn':m==='transfer'?'transferBtn':'debtBtn');if(x)x.onclick=()=>setMode(m)});setMode(type);const cat=document.getElementById('category'),categoryPicker=document.getElementById('categoryPicker');const accountPicker=document.getElementById('accountPicker');const openPicker=kind=>{const sel=kind==='category'?cat:document.getElementById('account');if(!sel)return;const items=[...sel.options].map(o=>o.value);const html='<div class="settings-modal picker-modal" id="pickerModal"><div class="settings-modal-card picker-card"><div class="picker-title"><span class="picker-modal-icon">'+(kind==='category'?sicon('category'):sicon('account'))+'</span><div><h3>'+(kind==='category'?'Kategori seç':'Hesap seç')+'</h3><p>Bir seçim yap.</p></div></div><div class="picker-list">'+items.map((x,i)=>'<button type="button" class="picker-item '+(sel.selectedIndex===i?'active':'')+'" data-picker-index="'+i+'"><span>'+esc(x)+'</span><span class="picker-check">'+(sel.selectedIndex===i?'✓':'')+'</span></button>').join('')+'</div><button type="button" class="modal-close" id="pickerClose">Kapat</button></div></div>';document.body.insertAdjacentHTML('beforeend',html);const m=document.getElementById('pickerModal');m.querySelectorAll('[data-picker-index]').forEach(b=>b.onclick=()=>{sel.selectedIndex=Number(b.dataset.pickerIndex);if(kind==='category')categoryPicker.querySelector('.picker-value').textContent=sel.value;else accountPicker.querySelector('.picker-value').textContent=sel.value;m.remove()});document.getElementById('pickerClose').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove()}};if(categoryPicker)categoryPicker.onclick=()=>openPicker('category');if(accountPicker)accountPicker.onclick=()=>openPicker('account');
 const datePickerBtn=document.getElementById('datePickerBtn');
 if(datePickerBtn)datePickerBtn.onclick=()=>openDateCalendar(document.getElementById('txDate'),document.getElementById('datePickerLabel'));
-const debtKindButtons=[...document.querySelectorAll('[data-debt-kind]')],debtPersonField=document.getElementById('debtPerson'),debtCreateFields=document.getElementById('debtCreateFields'),debtPaymentFields=document.getElementById('debtPaymentFields'),debtTargetRecord=document.getElementById('debtTargetRecord'),debtActionHint=document.getElementById('debtActionHint'),debtAmountLabel=document.getElementById('debtAmountLabel');let debtKind='verildi';const debtKindMeta={verildi:{hint:'Para hesabından çıkar; karşı taraf sana borçlanır ve alacağın oluşur.',label:'Verdiğin tutar',button:'Borç Ver',placeholder:'0'},alindi:{hint:'Para hesabına girer; sen karşı tarafa borçlanırsın.',label:'Aldığın tutar',button:'Borç Al',placeholder:'0'},tahsilat:{hint:'Para hesabına girer; seçtiğin alacağın azalır.',label:'Tahsilat tutarı',button:'Tahsilat Al',placeholder:'0'},geriOdeme:{hint:'Para hesabından çıkar; seçtiğin borcun azalır.',label:'Geri ödeme tutarı',button:'Geri Ödemeyi Yap',placeholder:'0'}};const refreshDebtTargets=kind=>{if(!debtTargetRecord)return;const direction=kind==='tahsilat'?'receivable':'payable';const records=(data.debts||[]).filter(d=>d&&debtDirectionOf(d)===direction&&d.status!=='closed'&&debtOutstanding(d)>0.009);debtTargetRecord.innerHTML='<option value="">Açık kayıt seç</option>'+records.map(d=>'<option value="'+esc(String(d.id))+'">'+esc(d.person||'Kişi')+' · Kalan '+esc(money(debtOutstanding(d)))+'</option>').join('');const hint=document.getElementById('debtTargetHint');if(hint)hint.textContent=records.length?(kind==='tahsilat'?'Tahsilat yapılacak alacak kaydını seç.':'Geri ödeme yapılacak borç kaydını seç.'):(kind==='tahsilat'?'Açık alacak bulunamadı. Önce Borç Verdim kaydı oluştur.':'Açık borç bulunamadı. Önce Borç Aldım kaydı oluştur.');};const setDebtKind=kind=>{debtKind=debtKindMeta[kind]?kind:'verildi';debtKindButtons.forEach(button=>button.classList.toggle('active',button.dataset.debtKind===debtKind));const meta=debtKindMeta[debtKind],isPayment=debtKind==='tahsilat'||debtKind==='geriOdeme';if(debtCreateFields)debtCreateFields.hidden=isPayment;if(debtPaymentFields)debtPaymentFields.hidden=!isPayment;if(debtActionHint)debtActionHint.textContent=meta.hint;if(debtAmountLabel)debtAmountLabel.textContent=meta.label;const amountInput=document.getElementById('debtAmount');if(amountInput)amountInput.placeholder=meta.placeholder;saveTx.textContent=meta.button+' Kaydet';if(isPayment)refreshDebtTargets(debtKind);};debtKindButtons.forEach(button=>button.onclick=()=>setDebtKind(button.dataset.debtKind));setDebtKind(debtKind);const adjust=()=>{};saveTx.onclick=()=>{const date=document.getElementById('txDate').value;if(!date){showAlertCard('Tarih seçin.','Tarih gerekli','error');return}const id=Date.now()+Math.random();if(type==='transfer'){const amount=Number(String(document.getElementById('transferAmount').value).replace(',','.')),from=document.getElementById('fromAccount').value,to=document.getElementById('toAccount').value;if(!Number.isFinite(amount)||amount<=0){showAlertCard('Geçerli bir tutar girin.','Geçersiz tutar','error');return}if(from===to){showAlertCard('Kaynak ve hedef hesap aynı olamaz.','Transfer oluşturulamadı','error');return}adjust(from,-amount);adjust(to,amount);data.transactions.unshift({id,type:'transfer',name:document.getElementById('name').value.trim()||'Transfer',category:'Transfer',amount:0,transferAmount:amount,date,time:new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),account:to,fromAccount:from,toAccount:to});save();nav('transactions');return}if(type==='debt'){
+const debtKindButtons=[...document.querySelectorAll('[data-debt-kind]')],debtPersonField=document.getElementById('debtPerson'),debtCreateFields=document.getElementById('debtCreateFields'),debtPaymentFields=document.getElementById('debtPaymentFields'),debtTargetRecord=document.getElementById('debtTargetRecord'),debtActionHint=document.getElementById('debtActionHint'),debtAmountLabel=document.getElementById('debtAmountLabel');let debtKind='verildi';const debtKindMeta={verildi:{hint:'Para hesabından çıkar; karşı taraf sana borçlanır ve alacağın oluşur.',label:'Verdiğin tutar',button:'Borç Ver',placeholder:'0'},alindi:{hint:'Para hesabına girer; sen karşı tarafa borçlanırsın.',label:'Aldığın tutar',button:'Borç Al',placeholder:'0'},tahsilat:{hint:'Para hesabına girer; seçtiğin alacağın azalır.',label:'Tahsilat tutarı',button:'Tahsilat Al',placeholder:'0'},geriOdeme:{hint:'Para hesabından çıkar; seçtiğin borcun azalır.',label:'Geri ödeme tutarı',button:'Geri Ödemeyi Yap',placeholder:'0'}};const refreshDebtTargets=kind=>{if(!debtTargetRecord)return;const direction=kind==='tahsilat'?'receivable':'payable';const records=(data.debts||[]).filter(d=>d&&debtDirectionOf(d)===direction&&d.status!=='closed'&&debtOutstanding(d)>0.009);debtTargetRecord.innerHTML='<option value="">Açık kayıt seç</option>'+records.map(d=>'<option value="'+esc(String(d.id))+'">'+esc(d.person||'Kişi')+' · Kalan '+esc(money(debtOutstanding(d)))+'</option>').join('');const hint=document.getElementById('debtTargetHint');if(hint)hint.textContent=records.length?(kind==='tahsilat'?'Tahsilat yapılacak alacak kaydını seç.':'Geri ödeme yapılacak borç kaydını seç.'):(kind==='tahsilat'?'Açık alacak bulunamadı. Önce Borç Verdim kaydı oluştur.':'Açık borç bulunamadı. Önce Borç Aldım kaydı oluştur.');};const setDebtKind=kind=>{debtKind=debtKindMeta[kind]?kind:'verildi';debtKindButtons.forEach(button=>button.classList.toggle('active',button.dataset.debtKind===debtKind));const meta=debtKindMeta[debtKind],isPayment=debtKind==='tahsilat'||debtKind==='geriOdeme';if(debtCreateFields)debtCreateFields.hidden=isPayment;if(debtPaymentFields)debtPaymentFields.hidden=!isPayment;if(debtActionHint)debtActionHint.textContent=meta.hint;if(debtAmountLabel)debtAmountLabel.textContent=meta.label;const amountInput=document.getElementById('debtAmount');if(amountInput)amountInput.placeholder=meta.placeholder;saveTx.textContent=meta.button+' Kaydet';if(isPayment)refreshDebtTargets(debtKind);};debtKindButtons.forEach(button=>button.onclick=()=>setDebtKind(button.dataset.debtKind));setDebtKind(debtKind);saveTx.onclick=()=>{const date=document.getElementById('txDate').value;if(!date){showAlertCard('Tarih seçin.','Tarih gerekli','error');return}const id=Date.now()+Math.random();if(type==='transfer'){const amount=Number(String(document.getElementById('transferAmount').value).replace(',','.')),from=document.getElementById('fromAccount').value,to=document.getElementById('toAccount').value;if(!Number.isFinite(amount)||amount<=0){showAlertCard('Geçerli bir tutar girin.','Geçersiz tutar','error');return}if(from===to){showAlertCard('Kaynak ve hedef hesap aynı olamaz.','Transfer oluşturulamadı','error');return}/* Bakiye tek kaynak olan işlem defterinden hesaplanır; burada ikinci kez değiştirilmez. */data.transactions.unshift({id,type:'transfer',name:document.getElementById('name').value.trim()||'Transfer',category:'Transfer',amount:0,transferAmount:amount,date,time:new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),account:to,fromAccount:from,toAccount:to});save();nav('transactions');return}if(type==='debt'){
  const amount=Number(String(document.getElementById('debtAmount').value).replace(',','.'));
  const account=document.getElementById('debtAccount').value;
  const note=document.getElementById('name').value.trim();
