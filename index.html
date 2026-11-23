@@ -1463,46 +1463,109 @@ plus:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></
 };
 return a[name]||a.info}
 function debtDirectionOf(debt){return debt&&debt.direction==='payable'?'payable':'receivable'}
-function showDebtRecordModal(){
- const html='<div class="settings-modal" id="debtRecordModal"><div class="settings-modal-card goal-modal-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon('debt')+'</span><div><h3>Detaylı borç / alacak kaydı</h3><p>Kişi, vade ve faiz bilgilerini kaydet.</p></div></div><div class="goal-fields"><div class="goal-field"><label>Kayıt türü</label><select id="debtDirection" class="account-type-field"><option value="receivable">Ben borç verdim (alacağım)</option><option value="payable">Ben borç aldım (ödeyeceğim)</option></select></div><div class="goal-field"><label>Kişi</label><input id="debtRecordPerson" maxlength="70" placeholder="Kişi adı"></div><div class="goal-field"><label>Anapara</label><input id="debtRecordAmount" inputmode="decimal" placeholder="0"></div><div class="goal-field"><label>Aylık basit faiz (%) · isteğe bağlı</label><input id="debtRecordRate" inputmode="decimal" placeholder="0"></div><div class="goal-field"><label>Vade tarihi · isteğe bağlı</label><input id="debtRecordDue" type="date"></div><div class="goal-field"><label>Para hareketinin hesabı</label><select id="debtRecordAccount" class="account-type-field">'+(data.accounts||[]).map(a=>'<option value="'+esc(a.name)+'">'+esc(a.name)+'</option>').join('')+'</select></div><div class="goal-field"><label>Vade kaç gün önce hatırlatılsın?</label><select id="debtRecordReminder" class="account-type-field"><option value="0">Vade günü</option><option value="1">1 gün önce</option><option value="3" selected>3 gün önce</option><option value="7">7 gün önce</option></select></div></div><div class="goal-actions"><button class="goal-cancel" id="debtRecordCancel">Vazgeç</button><button class="goal-primary" id="debtRecordSave">Kaydet</button></div></div></div>';
+function showDebtRecordModal(debtId){
+ const editing=debtId!=null,debt=editing?(data.debts||[]).find(d=>String(d.id)===String(debtId)):null;
+ if(editing&&!debt)return;
+ const source=debt||{},direction=debtDirectionOf(source),accounts=(data.accounts||[]).map(a=>a.name);
+ const title=editing?'Borç / alacak kaydını düzenle':'Yeni borç / alacak kaydı';
+ const html='<div class="settings-modal" id="debtRecordModal"><div class="settings-modal-card goal-modal-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon('debt')+'</span><div><h3>'+title+'</h3><p>Paranın kimden kime geçtiğini seç.</p></div></div><div class="goal-fields"><div class="goal-field"><label>Durum</label><select id="debtDirection" class="account-type-field"><option value="receivable" '+(direction==='receivable'?'selected':'')+'>Ben borç verdim · Benden alacaklı değil, ben alacaklıyım</option><option value="payable" '+(direction==='payable'?'selected':'')+'>Ben borç aldım · Ben geri ödeyeceğim</option></select></div><div class="goal-field"><label>Kişi</label><input id="debtRecordPerson" maxlength="70" placeholder="Kişi adı" value="'+esc(source.person||'')+'"></div><div class="goal-field"><label>Başlangıç anaparası</label><input id="debtRecordAmount" inputmode="decimal" value="'+(editing?esc(String(source.principalAmount!==undefined?source.principalAmount:source.amount||0)):'')+'" placeholder="0"></div><div class="goal-field"><label>Aylık basit faiz (%) · isteğe bağlı</label><input id="debtRecordRate" inputmode="decimal" value="'+(Number(source.interestRateMonthly)||'')+'" placeholder="0"></div><div class="goal-field"><label>Vade tarihi · isteğe bağlı</label><input id="debtRecordDue" type="date" value="'+esc(source.dueDate||'')+'"></div><div class="goal-field"><label>Para hareketinin hesabı</label><select id="debtRecordAccount" class="account-type-field">'+accounts.map(a=>'<option value="'+esc(a)+'" '+(a===(source.account||accounts[0])?'selected':'')+'>'+esc(a)+'</option>').join('')+'</select></div><div class="goal-field"><label>Vade hatırlatması</label><select id="debtRecordReminder" class="account-type-field">'+[0,1,3,7].map(n=>'<option value="'+n+'" '+(Number(source.reminderDays??3)===n?'selected':'')+'>'+(n===0?'Vade günü':n+' gün önce')+'</option>').join('')+'</select></div></div><div class="goal-actions"><button class="goal-cancel" id="debtRecordCancel">Vazgeç</button><button class="goal-primary" id="debtRecordSave">'+(editing?'Değişiklikleri kaydet':'Borç kaydını oluştur')+'</button></div></div></div>';
  document.body.insertAdjacentHTML('beforeend',html);const m=document.getElementById('debtRecordModal');
  document.getElementById('debtRecordCancel').onclick=()=>m.remove();
  document.getElementById('debtRecordSave').onclick=()=>{
   const person=document.getElementById('debtRecordPerson').value.trim(),amount=Number(String(document.getElementById('debtRecordAmount').value||'').replace(',','.'));
-  const rate=Number(String(document.getElementById('debtRecordRate').value||'0').replace(',','.')),direction=document.getElementById('debtDirection').value;
+  const rate=Number(String(document.getElementById('debtRecordRate').value||'0').replace(',','.')),newDirection=document.getElementById('debtDirection').value;
   const dueDate=document.getElementById('debtRecordDue').value,account=document.getElementById('debtRecordAccount').value,reminderDays=Number(document.getElementById('debtRecordReminder').value||0);
   if(!person||!Number.isFinite(amount)||amount<=0||!Number.isFinite(rate)||rate<0||rate>100){showAlertCard('Kişi, geçerli anapara ve %0–100 arası aylık faiz girin.','Kayıt oluşturulamadı','error');return}
-  const id='debt-'+Date.now(),createdAt=new Date().toISOString();
-  const debt={id,person,direction,amount,principalAmount:amount,principalRemaining:amount,remaining:amount,status:'open',account,dueDate,interestRateMonthly:rate,interestBalance:0,interestLastCalculatedAt:createdAt,createdAt,reminderDays,payments:[]};
-  data.debts=Array.isArray(data.debts)?data.debts:[];data.debts.push(debt);
-  const signed=direction==='receivable'?-amount:amount;
-  data.transactions.unshift({id:'tx-'+id,type:'debt',name:direction==='receivable'?'Borç verildi':'Borç alındı',category:'Borç / Alacak',amount:signed,date:localDateISO(),time:new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),account,person,debtId:id,debtDirection:direction,debtTypeLabel:direction==='receivable'?'Borç Verildi':'Borç Alındı'});
-  syncDebtReminder(debt);save();m.remove();render();toast('Borç / alacak kaydı oluşturuldu.');
+  let record=debt,origin;
+  if(editing){
+   const snapshot=JSON.parse(JSON.stringify(debt));
+   debt.person=person;debt.direction=newDirection;debt.amount=amount;debt.principalAmount=amount;
+   debt.interestRateMonthly=rate;debt.dueDate=dueDate;debt.account=account;debt.reminderDays=reminderDays;
+   const ledger=recalculateDebtLedger(debt);
+   if(!ledger.ok){Object.keys(debt).forEach(k=>delete debt[k]);Object.assign(debt,snapshot);showAlertCard('Yeni anapara, mevcut ödemelerle uyuşmuyor. Ödeme geçmişini aşan daha düşük bir anapara giremezsin.','Borç bakiyesi korunuyor','error');return}
+   origin=findDebtOriginTransaction(debt);
+   if(!origin){
+    origin={id:debt.openingTransactionId||'tx-'+debt.id,type:'debt',category:'Borç / Alacak',date:String(debt.createdAt||localDateISO()).slice(0,10),time:'00:00',debtId:String(debt.id)};
+    data.transactions.unshift(origin);debt.openingTransactionId=String(origin.id);
+   }
+   origin.name=newDirection==='receivable'?'Borç verildi':'Borç alındı';
+   origin.category='Borç / Alacak';origin.amount=newDirection==='receivable'?-amount:amount;
+   origin.account=account;origin.person=person;origin.debtId=String(debt.id);origin.debtDirection=newDirection;
+   origin.debtTypeLabel=newDirection==='receivable'?'Borç Verildi':'Borç Alındı';
+   (debt.payments||[]).forEach(payment=>{
+    const tx=data.transactions.find(t=>String(t.debtPaymentId||'')===String(payment.id)||String(t.debtId||'')===String(debt.id)&&isDebtPaymentTransaction(t)&&String(t.date||'')===String(payment.date||'')&&Math.abs(Number(t.amount)||0)===Number(payment.amount||0));
+    if(tx){tx.account=account;tx.person=person;tx.debtDirection=newDirection;tx.amount=newDirection==='receivable'?Math.abs(Number(payment.amount)||0):-Math.abs(Number(payment.amount)||0);tx.name=newDirection==='receivable'?'Borç tahsilatı':'Borç geri ödemesi';tx.debtTypeLabel=newDirection==='receivable'?'Tahsilat':'Geri Ödeme'}
+   });
+  }else{
+   const id='debt-'+Date.now(),createdAt=new Date().toISOString(),originId='tx-'+id;
+   record={id,person,direction:newDirection,amount,principalAmount:amount,principalRemaining:amount,remaining:amount,status:'open',account,dueDate,interestRateMonthly:rate,interestBalance:0,interestLastCalculatedAt:createdAt,createdAt,reminderDays,payments:[],openingTransactionId:originId};
+   data.debts=Array.isArray(data.debts)?data.debts:[];data.debts.push(record);
+   origin={id:originId,type:'debt',name:newDirection==='receivable'?'Borç verildi':'Borç alındı',category:'Borç / Alacak',amount:newDirection==='receivable'?-amount:amount,date:localDateISO(),time:new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),account,person,debtId:String(record.id),debtDirection:newDirection,debtTypeLabel:newDirection==='receivable'?'Borç Verildi':'Borç Alındı'};
+   data.transactions.unshift(origin);
+  }
+  syncDebtReminder(record);save();m.remove();render();toast(editing?'Borç / alacak kaydı güncellendi.':'Borç / alacak kaydı oluşturuldu.');
  };m.onclick=e=>{if(e.target===m)m.remove()};
 }
 function showDebtPaymentModal(debtId){
  const debt=(data.debts||[]).find(d=>String(d.id)===String(debtId));if(!debt)return;
- const outstanding=debtOutstanding(debt),interest=debtAccruedInterest(debt);
- const direction=debtDirectionOf(debt),verb=direction==='receivable'?'Tahsilat al':'Ödeme yap';
- const html='<div class="settings-modal" id="debtPaymentModal"><div class="settings-modal-card goal-modal-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon('currency')+'</span><div><h3>'+verb+'</h3><p>'+esc(debt.person||'Kişi')+' · Kalan '+money(outstanding)+'</p></div></div><div class="goal-fields"><div class="goal-field"><label>Ödeme tutarı</label><input id="debtPaymentAmount" inputmode="decimal" placeholder="'+String(outstanding)+'"></div><div class="goal-field"><label>İşlem tarihi</label><input id="debtPaymentDate" type="date" value="'+localDateISO()+'"></div><div class="goal-field"><small>Şu anki tahmini birikmiş faiz: '+money(interest)+'. Ödeme önce faize, sonra anaparaya uygulanır.</small></div></div><div class="goal-actions"><button class="goal-cancel" id="debtPaymentCancel">Vazgeç</button><button class="goal-primary" id="debtPaymentSave">Ödemeyi kaydet</button></div></div></div>';
+ const outstanding=debtOutstanding(debt),interest=debtAccruedInterest(debt),direction=debtDirectionOf(debt);
+ const verb=direction==='receivable'?'Tahsilat al':'Geri ödeme yap';
+ const html='<div class="settings-modal" id="debtPaymentModal"><div class="settings-modal-card goal-modal-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon('currency')+'</span><div><h3>'+verb+'</h3><p>'+esc(debt.person||'Kişi')+' · Kalan '+money(outstanding)+'</p></div></div><div class="goal-fields"><div class="goal-field"><label>'+(direction==='receivable'?'Tahsilat tutarı':'Geri ödeme tutarı')+'</label><input id="debtPaymentAmount" inputmode="decimal" placeholder="'+String(outstanding)+'"></div><div class="goal-field"><label>İşlem tarihi</label><input id="debtPaymentDate" type="date" value="'+localDateISO()+'"></div><div class="goal-field"><label>Paranın hareket edeceği hesap</label><select id="debtPaymentAccount" class="account-type-field">'+(data.accounts||[]).map(a=>'<option value="'+esc(a.name)+'" '+(a.name===debt.account?'selected':'')+'>'+esc(a.name)+'</option>').join('')+'</select></div><div class="goal-field"><small>Bugünkü tahmini birikmiş faiz: '+money(interest)+'. Ödeme önce faizi, sonra anaparayı azaltır.</small></div></div><div class="goal-actions"><button class="goal-cancel" id="debtPaymentCancel">Vazgeç</button><button class="goal-primary" id="debtPaymentSave">Kaydet</button></div></div></div>';
  document.body.insertAdjacentHTML('beforeend',html);const m=document.getElementById('debtPaymentModal');
  document.getElementById('debtPaymentCancel').onclick=()=>m.remove();
  document.getElementById('debtPaymentSave').onclick=()=>{
-  const amount=Number(String(document.getElementById('debtPaymentAmount').value||'').replace(',','.')),date=document.getElementById('debtPaymentDate').value;
+  const amount=Number(String(document.getElementById('debtPaymentAmount').value||'').replace(',','.')),date=document.getElementById('debtPaymentDate').value,account=document.getElementById('debtPaymentAccount').value;
   if(!Number.isFinite(amount)||amount<=0||amount>outstanding+0.01||!date){showAlertCard('Geçerli tarih ve kalan tutarı aşmayan ödeme girin.','Ödeme kaydedilemedi','error');return}
-  const now=new Date(date+'T12:00:00'),interestDue=debtAccruedInterest(debt,now),principal=debtPrincipalRemaining(debt);
-  const toInterest=Math.min(amount,interestDue),toPrincipal=Math.min(principal,Math.max(0,amount-toInterest));
-  debt.interestBalance=Math.max(0,Math.round((interestDue-toInterest)*100)/100);
-  debt.interestLastCalculatedAt=now.toISOString();
-  debt.principalRemaining=Math.max(0,Math.round((principal-toPrincipal)*100)/100);
-  debt.remaining=Math.max(0,Math.round((debt.principalRemaining+debt.interestBalance)*100)/100);
+  const paymentId='payment-'+Date.now();
   debt.payments=Array.isArray(debt.payments)?debt.payments:[];
-  debt.payments.push({id:'payment-'+Date.now(),amount,date,interestPaid:toInterest,principalPaid:toPrincipal});
-  debt.status=debt.remaining<=0.01?'closed':'open';
-  const signed=direction==='receivable'?amount:-amount;
-  data.transactions.unshift({id:'tx-payment-'+Date.now(),type:'debt',name:direction==='receivable'?'Borç tahsilatı':'Borç geri ödemesi',category:'Borç / Alacak',amount:signed,date,time:new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),account:debt.account||'',person:debt.person,debtId:String(debt.id),debtDirection:direction,debtTypeLabel:direction==='receivable'?'Tahsilat':'Ödeme',interestPaid:toInterest,principalPaid:toPrincipal});
-  syncDebtReminder(debt);save();m.remove();render();toast(debt.status==='closed'?'Borç / alacak kapatıldı.':'Kısmi ödeme kaydedildi.');
+  debt.payments.push({id:paymentId,amount,date,account});
+  const ledger=recalculateDebtLedger(debt);
+  if(!ledger.ok){debt.payments.pop();showAlertCard('Ödeme borç bakiyesine uygulanamadı.','Ödeme kaydedilemedi','error');return}
+  const txId='tx-'+paymentId;
+  const transaction={id:txId,type:'debt',name:direction==='receivable'?'Borç tahsilatı':'Borç geri ödemesi',category:'Borç / Alacak',amount:direction==='receivable'?amount:-amount,date,time:new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),account,person:debt.person,debtId:String(debt.id),debtPaymentId:paymentId,debtAction:'payment',debtDirection:direction,debtTypeLabel:direction==='receivable'?'Tahsilat':'Geri Ödeme'};
+  data.transactions.unshift(transaction);syncDebtReminder(debt);save();m.remove();render();toast(debt.status==='closed'?'Borç / alacak kapatıldı.':'Kısmi ödeme kaydedildi.');
  };m.onclick=e=>{if(e.target===m)m.remove()};
+}
+function showDebtPaymentEditModal(debtId,paymentId){
+ const debt=(data.debts||[]).find(d=>String(d.id)===String(debtId));if(!debt)return;
+ const payment=(debt.payments||[]).find(p=>String(p.id)===String(paymentId));if(!payment)return;
+ const tx=(data.transactions||[]).find(t=>String(t.debtPaymentId||'')===String(payment.id));
+ const direction=debtDirectionOf(debt);
+ const html='<div class="settings-modal" id="debtPaymentEditModal"><div class="settings-modal-card goal-modal-card"><h3>Ödeme hareketini düzenle</h3><div class="goal-fields"><div class="goal-field"><label>Tutar</label><input id="debtPaymentEditAmount" inputmode="decimal" value="'+esc(String(payment.amount||0))+'"></div><div class="goal-field"><label>Tarih</label><input id="debtPaymentEditDate" type="date" value="'+esc(payment.date||localDateISO())+'"></div><div class="goal-field"><label>Hesap</label><select id="debtPaymentEditAccount" class="account-type-field">'+(data.accounts||[]).map(a=>'<option value="'+esc(a.name)+'" '+(a.name===(tx&&tx.account||payment.account||debt.account)?'selected':'')+'>'+esc(a.name)+'</option>').join('')+'</select></div></div><div class="goal-actions"><button class="goal-cancel" id="debtPaymentEditCancel">Vazgeç</button><button class="goal-primary" id="debtPaymentEditSave">Değişiklikleri kaydet</button></div></div></div>';
+ document.body.insertAdjacentHTML('beforeend',html);const m=document.getElementById('debtPaymentEditModal');
+ document.getElementById('debtPaymentEditCancel').onclick=()=>m.remove();
+ document.getElementById('debtPaymentEditSave').onclick=()=>{
+  const amount=Number(String(document.getElementById('debtPaymentEditAmount').value||'').replace(',','.')),date=document.getElementById('debtPaymentEditDate').value,account=document.getElementById('debtPaymentEditAccount').value;
+  if(!Number.isFinite(amount)||amount<=0||!date){showAlertCard('Geçerli ödeme tutarı ve tarihi girin.','Ödeme güncellenemedi','error');return}
+  const snapshot=JSON.parse(JSON.stringify(debt)),oldAmount=payment.amount,oldDate=payment.date;
+  payment.amount=amount;payment.date=date;payment.account=account;
+  const ledger=recalculateDebtLedger(debt);
+  if(!ledger.ok){Object.keys(debt).forEach(k=>delete debt[k]);Object.assign(debt,snapshot);showAlertCard('Bu değişiklik kalan borçtan fazla ödeme oluşturuyor.','Ödeme güncellenemedi','error');return}
+  let linked=tx;
+  if(!linked){
+   linked=(data.transactions||[]).find(t=>String(t.debtId||'')===String(debt.id)&&isDebtPaymentTransaction(t)&&String(t.date||'')===String(oldDate||'')&&Math.abs(Number(t.amount)||0)===Math.abs(Number(oldAmount)||0));
+  }
+  if(linked){linked.debtPaymentId=String(payment.id);linked.debtAction='payment';linked.date=date;linked.account=account;linked.person=debt.person;linked.debtDirection=direction;linked.amount=direction==='receivable'?amount:-amount;linked.name=direction==='receivable'?'Borç tahsilatı':'Borç geri ödemesi';linked.debtTypeLabel=direction==='receivable'?'Tahsilat':'Geri Ödeme'}
+  syncDebtReminder(debt);save();m.remove();render();toast('Ödeme hareketi güncellendi.');
+ };m.onclick=e=>{if(e.target===m)m.remove()};
+}
+function showDebtDeleteConfirm(debtId){
+ const debt=(data.debts||[]).find(d=>String(d.id)===String(debtId));if(!debt)return;
+ const wrap=document.createElement('div');wrap.className='alert-card-wrap';wrap.innerHTML='<div class="alert-card"><div class="alert-icon">'+sicon('trash')+'</div><h3>Borç / alacak kaydını sil</h3><p><b>'+esc(debt.person||'Kişi')+'</b> kaydı, bu kayda bağlı başlangıç ve ödeme hareketleriyle birlikte silinecek. Hesap bakiyeleri de bu hareketler çıkarılarak yeniden hesaplanır.</p><div class="alert-actions"><button class="alert-cancel" id="debtDeleteCancel">Vazgeç</button><button class="alert-danger" id="debtDeleteConfirm">Kaydı sil</button></div></div>';
+ document.body.appendChild(wrap);wrap.querySelector('#debtDeleteCancel').onclick=()=>wrap.remove();
+ wrap.querySelector('#debtDeleteConfirm').onclick=async()=>{
+  wrap.remove();
+  const linked=(data.transactions||[]).filter(t=>String(t.debtId||'')===String(debt.id));
+  linked.forEach(t=>markTransactionDeleted(t.id));
+  debtOriginIds(debt).forEach(markTransactionDeleted);
+  data.transactions=(data.transactions||[]).filter(t=>String(t.debtId||'')!==String(debt.id));
+  data.debts=(data.debts||[]).filter(d=>String(d.id)!==String(debt.id));
+  data.reminders=(data.reminders||[]).filter(r=>String(r.id)!=='debt-due-'+String(debt.id));
+  save();render();
+  const cloud=window.DengeCloud&&window.DengeCloud.getStatus?window.DengeCloud.getStatus():null;
+  if(cloud&&cloud.userId&&navigator.onLine){try{await window.DengeCloud.syncNow();updateCloudPanel();toast('Borç / alacak kaydı ve hareketleri silindi.')}catch(error){showAlertCard('Kayıt cihazdan silindi ancak Cloud eşitlemesi tamamlanamadı.','Denge Cloud','error')}}else toast('Borç / alacak kaydı ve bağlı hareketleri silindi.');
+ };
+ wrap.onclick=e=>{if(e.target===wrap)wrap.remove()};
 }
 function debtOverview(){
  const all=(data.debts||[]).filter(d=>d&&d.status!=='closed'&&debtOutstanding(d)>0.009);
