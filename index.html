@@ -913,43 +913,46 @@ function accounts(){const balances=computedAccountBalances();const realAccounts=
 
 
 function budget(){
- const ym=/^\d{4}-\d{2}$/.test(budgetMonth)?budgetMonth:'2026-09';
- const monthTx=data.transactions.filter(t=>String(t.date||'').slice(0,7)===ym&&t.amount<0);
- const spentTotal=monthTx.reduce((a,t)=>a+Math.abs(Number(t.amount||0)),0);
- const totalBudget=Object.values(data.budgets||{}).reduce((a,v)=>a+Number(v||0),0);
- const remaining=totalBudget>0?totalBudget-spentTotal:0;
+ const ym=/^\d{4}-\d{2}$/.test(budgetMonth)?budgetMonth:currentMonth();
+ const metrics=budgetMetricsForMonth(ym);
+ const totalBudget=Object.values(data.budgets||{}).reduce((a,v)=>a+Math.max(0,Number(v)||0),0);
  const months=Array.from({length:12},(_,i)=>ym.slice(0,4)+'-'+String(i+1).padStart(2,'0'));
  const monthName=x=>{const [y,m]=x.split('-');return new Intl.DateTimeFormat('tr-TR',{month:'long',year:'numeric'}).format(new Date(Number(y),Number(m)-1,1));};
  const palette={Market:'#7aa7ff',Fatura:'#f5a06f',Ulaşım:'#55c99b',Yemek:'#ef70a1'};
  const icons={Market:sicon('market'),Fatura:sicon('invoice'),Ulaşım:sicon('transport'),Yemek:sicon('food')};
  data.goals=Array.isArray(data.goals)?data.goals:[];
- const goals=data.goals.map(g=>{const target=Math.max(0,Number(g.targetAmount||g.target||0));const saved=Math.max(0,Number(g.savedAmount??g.saved??0));const pct=target?Math.min(100,saved/target*100):0;return '<div class="goal-card" data-goal-id="'+esc(String(g.id))+'"><div class="goal-top"><span class="goal-icon">'+(g.icon==='target'?sicon('target'):(g.icon||sicon('target')))+'</span><span class="goal-main"><b>'+esc(g.name||'Finansal Hedef')+'</b><small>'+(g.targetDate?esc(g.targetDate):'Hedef tarihi belirtilmedi')+'</small></span><span class="goal-amount"><b>'+money(saved)+'</b><small>/ '+money(target)+'</small></span></div><span class="goal-bar"><i style="width:'+pct+'%"></i></span></div>'}).join('');
- const rows=Object.entries(data.budgets||{}).map(([k,v])=>{const spent=monthTx.filter(t=>t.category===k).reduce((a,t)=>a+Math.abs(Number(t.amount||0)),0);const pct=Math.min(100,v?spent/v*100:0);return '<button type="button" class="budget-item" data-budget-cat="'+esc(k)+'"><span class="budget-icon" style="background:'+((palette[k]||'#8d7cf4'))+'22;color:'+((palette[k]||'#6d5dfc'))+'">'+(icons[k]||'•')+'</span><span class="budget-mid"><span class="budget-name">'+esc(k)+'</span><span class="budget-bar"><i style="width:'+pct+'%;background:'+((palette[k]||'#6d5dfc'))+'"></i></span></span><span class="budget-right"><b>'+money(spent)+'</b><small>/ '+money(v)+'</small></span><span class="budget-chevron">›</span></button>'}).join('');
- const budgetAlerts=[];
- Object.entries(data.budgets||{}).forEach(([k,v])=>{
-   const lim=Number(v)||0; if(lim<=0) return;
-   const spent=monthTx.filter(t=>t.category===k).reduce((a,t)=>a+Math.abs(Number(t.amount||0)),0);
-   const pct=spent/lim*100;
-   if(pct>=100) budgetAlerts.push({level:'over',cat:k,spent,lim,pct});
-   else if(pct>=80) budgetAlerts.push({level:'warn',cat:k,spent,lim,pct});
- });
- const alertHtml=budgetAlerts.map(a=>'<div class="budget-alert '+a.level+'"><div><b>'+(a.level==='over'?'Bütçe aşıldı':'Bütçe limitine yaklaşıldı')+': '+esc(a.cat)+'</b>'+money(a.spent)+' / '+money(a.lim)+' ('+Math.round(a.pct)+'%)</div></div>').join('');
+ const goals=data.goals.map(g=>{
+  const target=Math.max(0,Number(g.targetAmount||g.target||0)),saved=Math.max(0,Number(g.savedAmount??g.saved??0));
+  const pct=target?Math.min(100,saved/target*100):0;
+  const auto=Number(g.autoContributionAmount)||0;
+  return '<article class="goal-card" data-goal-id="'+esc(String(g.id))+'"><div class="goal-top"><span class="goal-icon">'+sicon('target')+'</span><span class="goal-main"><b>'+esc(g.name||'Finansal Hedef')+'</b><small>'+(g.targetDate?'Hedef: '+esc(g.targetDate):'Hedef tarihi belirtilmedi')+(auto>0?' · Aylık otomatik '+money(auto):'')+'</small></span><span class="goal-amount"><b>'+money(saved)+'</b><small>/ '+money(target)+'</small></span></div><span class="goal-bar"><i style="width:'+pct+'%"></i></span><div class="goal-progress-meta"><span>%'+Math.round(pct)+' tamamlandı</span><span>Kalan: '+money(Math.max(0,target-saved))+'</span></div><div class="goal-card-actions"><button type="button" data-goal-contribute="'+esc(String(g.id))+'">＋ Katkı yap</button><button type="button" data-goal-auto="'+esc(String(g.id))+'">'+(auto>0&&g.autoContributionActive!==false?'Otomatik açık':'Otomatik katkı')+'</button></div></article>';
+ }).join('');
+ const rows=Object.entries(data.budgets||{}).map(([k,v])=>{
+  const lim=Math.max(0,Number(v)||0),spent=Number(metrics.byCategory[k]||0),remaining=lim-spent,pct=lim?Math.min(100,spent/lim*100):0;
+  const level=pct>=100?'over':pct>=80?'warn':'';
+  return '<button type="button" class="budget-item '+level+'" data-budget-cat="'+esc(k)+'"><span class="budget-icon" style="background:'+((palette[k]||'#8d7cf4'))+'22;color:'+((palette[k]||'#6d5dfc'))+'">'+(icons[k]||sicon('tag'))+'</span><span class="budget-mid"><span class="budget-name">'+esc(k)+'</span><span class="budget-bar"><i style="width:'+pct+'%;background:'+((palette[k]||'#6d5dfc'))+'"></i></span><small class="budget-remaining-label">'+(remaining>=0?'Kalan: ':'Aşım: ')+money(Math.abs(remaining))+'</small></span><span class="budget-right"><b>'+money(spent)+'</b><small>/ '+money(lim)+'</small></span><span class="budget-chevron">›</span></button>';
+ }).join('');
+ const alerts=Object.entries(data.budgets||{}).map(([cat,limit])=>{
+  const lim=Math.max(0,Number(limit)||0),spent=Number(metrics.byCategory[cat]||0),pct=lim?spent/lim*100:0;
+  if(pct>=100)return {level:'over',cat,spent,lim,pct};
+  if(pct>=80)return {level:'warn',cat,spent,lim,pct};
+  return null;
+ }).filter(Boolean);
+ const alertHtml=alerts.map(a=>'<div class="budget-alert '+a.level+'"><div><b>'+(a.level==='over'?'Bütçe aşıldı':'Bütçe limitine yaklaşıldı')+': '+esc(a.cat)+'</b>'+money(a.spent)+' / '+money(a.lim)+' ('+Math.round(a.pct)+'%) · '+(a.level==='over'?'Limit '+money(a.spent-a.lim)+' aşıldı':'Limitin %'+Math.round(100-a.pct)+' kısmı kaldı')+'</div></div>').join('');
  return '<div class="budget-page">'
  +' <div class="budget-head"><button class="budget-back" data-nav="profile" aria-label="Geri">‹</button><h1>Hedefler & Bütçe</h1></div>'
  +' <div class="budget-month-picker"><button type="button" id="budgetMonthTrigger" class="budget-month-trigger" aria-expanded="false">'+esc(monthName(ym))+' <span>⌄</span></button><div id="budgetMonthMenu" class="budget-month-menu" hidden>'+months.map(m=>'<button type="button" data-budget-month="'+m+'" class="'+(m===ym?'selected':'')+'">'+esc(monthName(m).replace(' 2026',''))+'</button>').join('')+'</div></div>'
  +' <div class="budget-tools"><button type="button" class="budget-tool goal" id="addGoal">'+sicon('target')+'<span>Hedef Ekle</span></button><button type="button" class="budget-tool budget" id="addBudget">'+sicon('chart')+'<span>Bütçe Ekle</span></button></div>'
+ +' <section class="budget-spendable" id="budgetSpendableSummary"><div><span>Bu ay ne kadar harcayabilirim?</span><strong>'+money(metrics.available)+'</strong><small>Günlük yaklaşık '+money(metrics.dailyAvailable)+' · '+metrics.daysLeft+' gün kaldı</small></div><div class="budget-spendable-icon">'+sicon('wallet')+'</div></section>'
  +alertHtml
- +' <section class="budget-summary"><div><span>Toplam Bütçe</span><strong>'+money(totalBudget)+'</strong></div><div><span>Kalan</span><strong class="remaining">'+money(remaining)+'</strong></div></section>'
+ +' <section class="budget-summary"><div><span>Toplam kategori limiti</span><strong>'+money(totalBudget)+'</strong></div><div><span>Bu ay harcanan</span><strong>'+money(metrics.expense)+'</strong></div><div><span>Gelir − gider</span><strong class="'+(metrics.cashflowRemaining>=0?'remaining':'expense')+'">'+money(metrics.cashflowRemaining)+'</strong></div><div><span>Kategori limitlerinden kalan</span><strong class="'+(metrics.budgetRemaining>=0?'remaining':'expense')+'">'+money(metrics.budgetRemaining)+'</strong></div></section>'
  +' <div class="budget-section-head"><h2>Finansal Hedefler</h2><span>'+data.goals.length+' hedef</span></div>'
  +(goals?'<section class="goal-list">'+goals+'</section>':emptyState('target','Henüz hedef yok','Birikim veya ödeme hedefi ekleyerek ilerlemeni takip et.'))
  +' <div class="budget-section-head"><h2>Kategori Bütçeleri</h2><span>'+Object.keys(data.budgets||{}).length+' kategori</span></div>'
  +(rows?'<section class="budget-list">'+rows+'</section>':'<section class="budget-list empty-budget">Henüz kategori bütçesi yok. “Bütçe Ekle” ile başlayabilirsin.</section>')
+ +' <p class="budget-footnote">Harcayabileceğin tutar; aylık gelir-gider farkı ile tanımlı kategori limitlerinden kalan tutarın düşük olanıdır. Hedef katkıları birikim takibidir; banka hesabından otomatik para transferi yapmaz.</p>'
  +' </div>';
 }
-
-
-
-
 function openEditCategoryModal(type,oldName){
   const iconKeys=['home','market','shopping','food','invoice','transport','game','health','wallet','chart','coffee','card','bank','fuel','tool','heart','currency','tag','edit','bell','monitor','pharmacy','carwash','ticket','dots'];
   let selectedIcon=getCategoryIconKey(oldName);
@@ -2070,16 +2073,54 @@ function showClearDataConfirm(){
 }
 
 function showGoalModal(){
- const html='<div class="settings-modal" id="goalModal"><div class="settings-modal-card goal-modal-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon('target')+'</span><div><h3>Finansal hedef ekle</h3><p>Hedefini belirle, ilerlemeni takip et.</p></div></div><div class="goal-fields"><div class="goal-field"><label>Hedef adı</label><input id="goalName" placeholder="Örn. Yeni telefon"></div><div class="goal-field"><label>Hedef tutarı</label><input id="goalTarget" inputmode="decimal" placeholder="2.000"></div><div class="goal-field"><label>Mevcut birikim</label><input id="goalSaved" inputmode="decimal" placeholder="0"></div><div class="goal-field"><label>Hedef tarihi</label><input id="goalDate" type="date"></div></div><div class="goal-actions"><button type="button" class="goal-cancel" id="goalCancel">Vazgeç</button><button type="button" class="goal-primary" id="goalSave">Hedefi Kaydet</button></div></div></div>';
+ const html='<div class="settings-modal" id="goalModal"><div class="settings-modal-card goal-modal-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon('target')+'</span><div><h3>Finansal hedef ekle</h3><p>Hedefini belirle, düzenli katkı planla.</p></div></div><div class="goal-fields"><div class="goal-field"><label>Hedef adı</label><input id="goalName" maxlength="70" placeholder="Örn. Yeni telefon"></div><div class="goal-field"><label>Hedef tutarı</label><input id="goalTarget" inputmode="decimal" placeholder="2.000"></div><div class="goal-field"><label>Mevcut birikim</label><input id="goalSaved" inputmode="decimal" placeholder="0"></div><div class="goal-field"><label>Hedef tarihi</label><input id="goalDate" type="date"></div><div class="goal-field"><label>Otomatik aylık katkı (isteğe bağlı)</label><input id="goalAutoAmount" inputmode="decimal" placeholder="0"></div><div class="goal-field"><label>Her ay hangi gün katkı işlensin?</label><input id="goalAutoDay" type="number" min="1" max="28" value="1"></div></div><div class="goal-actions"><button type="button" class="goal-cancel" id="goalCancel">Vazgeç</button><button type="button" class="goal-primary" id="goalSave">Hedefi Kaydet</button></div></div></div>';
  document.body.insertAdjacentHTML('beforeend',html);const m=document.getElementById('goalModal');
- document.getElementById('goalCancel').onclick=()=>m.remove();document.getElementById('goalSave').onclick=()=>{const name=document.getElementById('goalName').value.trim(),target=Number(String(document.getElementById('goalTarget').value).replace(',','.')),saved=Number(String(document.getElementById('goalSaved').value||'0').replace(',','.')),date=document.getElementById('goalDate').value;if(!name||!Number.isFinite(target)||target<=0||!Number.isFinite(saved)||saved<0){showAlertCard('Hedef adı ve geçerli tutarlar girin.','Hedef eklenemedi','error');return}data.goals=data.goals||[];data.goals.push({id:'goal-'+Date.now(),name,targetAmount:target,savedAmount:saved,targetDate:date||'',icon:'target'});save();m.remove();render();toast('Finansal hedef eklendi.');};m.onclick=e=>{if(e.target===m)m.remove()};
+ document.getElementById('goalCancel').onclick=()=>m.remove();
+ document.getElementById('goalSave').onclick=()=>{
+  const name=document.getElementById('goalName').value.trim(),target=Number(String(document.getElementById('goalTarget').value).replace(',','.'));
+  const saved=Number(String(document.getElementById('goalSaved').value||'0').replace(',','.')),date=document.getElementById('goalDate').value;
+  const autoAmount=Number(String(document.getElementById('goalAutoAmount').value||'0').replace(',','.')),autoDay=Math.min(28,Math.max(1,Number(document.getElementById('goalAutoDay').value||1)));
+  if(!name||!Number.isFinite(target)||target<=0||!Number.isFinite(saved)||saved<0||!Number.isFinite(autoAmount)||autoAmount<0){showAlertCard('Hedef adı ve geçerli tutarlar girin.','Hedef eklenemedi','error');return}
+  const id='goal-'+Date.now();data.goals=data.goals||[];
+  data.goals.push({id,name,targetAmount:target,savedAmount:saved,targetDate:date||'',icon:'target',createdAt:new Date().toISOString(),autoContributionAmount:autoAmount,autoContributionDay:autoDay,autoContributionActive:autoAmount>0,generatedMonths:[],contributions:[]});
+  save();m.remove();render();toast('Finansal hedef eklendi.');
+ };m.onclick=e=>{if(e.target===m)m.remove()};
+}
+function showGoalContributionModal(goalId){
+ const goal=(data.goals||[]).find(g=>String(g.id)===String(goalId));if(!goal)return;
+ const html='<div class="settings-modal" id="goalContributionModal"><div class="settings-modal-card goal-modal-card"><h3>Hedefe katkı yap</h3><p>'+esc(goal.name||'Finansal hedef')+' için ek katkı tutarını gir.</p><div class="goal-fields"><div class="goal-field"><label>Katkı tutarı</label><input id="goalContributionAmount" inputmode="decimal" placeholder="0"></div></div><div class="goal-actions"><button class="goal-cancel" id="goalContributionCancel">Vazgeç</button><button class="goal-primary" id="goalContributionSave">Katkıyı ekle</button></div></div></div>';
+ document.body.insertAdjacentHTML('beforeend',html);const m=document.getElementById('goalContributionModal');
+ document.getElementById('goalContributionCancel').onclick=()=>m.remove();
+ document.getElementById('goalContributionSave').onclick=()=>{
+  const amount=Number(String(document.getElementById('goalContributionAmount').value||'').replace(',','.'));
+  if(!Number.isFinite(amount)||amount<=0){showAlertCard('Geçerli bir katkı tutarı girin.','Katkı eklenemedi','error');return}
+  const target=Math.max(0,Number(goal.targetAmount||goal.target)||0),saved=Math.max(0,Number(goal.savedAmount??goal.saved??0)),applied=Math.min(amount,Math.max(0,target-saved));
+  if(applied<=0){showAlertCard('Bu hedef zaten tamamlanmış.','Hedef tamamlandı','info');return}
+  goal.savedAmount=Math.round((saved+applied)*100)/100;goal.contributions=Array.isArray(goal.contributions)?goal.contributions:[];
+  goal.contributions.push({id:'goal-manual-'+Date.now(),amount:applied,date:localDateISO(),automatic:false});
+  save();m.remove();render();toast('Hedef katkısı kaydedildi.');
+ };m.onclick=e=>{if(e.target===m)m.remove()};
+}
+function toggleGoalAutoContribution(goalId){
+ const goal=(data.goals||[]).find(g=>String(g.id)===String(goalId));if(!goal)return;
+ if(!(Number(goal.autoContributionAmount)>0)){showInputCard('Aylık otomatik katkı','Her ay hedef ilerlemesine eklenecek tutarı gir. Bu işlem banka hesabına transfer yapmaz.','Örn. 500',raw=>{
+  const amount=Number(String(raw||'').replace(',','.'));if(!Number.isFinite(amount)||amount<=0){showAlertCard('Geçerli bir tutar girin.','Katkı ayarlanamadı','error');return}
+  goal.autoContributionAmount=amount;goal.autoContributionDay=goal.autoContributionDay||1;goal.autoContributionActive=true;goal.generatedMonths=Array.isArray(goal.generatedMonths)?goal.generatedMonths:[];save();render();toast('Otomatik hedef katkısı ayarlandı.');
+ });return}
+ goal.autoContributionActive=goal.autoContributionActive===false;save();render();toast(goal.autoContributionActive?'Otomatik hedef katkısı açıldı.':'Otomatik hedef katkısı duraklatıldı.');
 }
 function showBudgetModal(category){
- const cats=(data.categories?.expense||[]).filter(Boolean);const selected=category||cats[0]||'Market';
- const html='<div class="settings-modal" id="budgetEditModal"><div class="settings-modal-card goal-modal-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon('chart')+'</span><div><h3>Bütçe ekle</h3><p>Aylık kategori bütçeni belirle.</p></div></div><div class="goal-fields"><div class="goal-field"><label>Kategori</label><select id="budgetCat">'+cats.map(c=>'<option value="'+esc(c)+'" '+(c===selected?'selected':'')+'>'+esc(c)+'</option>').join('')+'</select></div><div class="goal-field"><label>Aylık bütçe</label><input id="budgetAmount" inputmode="decimal" placeholder="5.000"></div></div><div class="goal-actions"><button type="button" class="goal-cancel" id="budgetCancel">Vazgeç</button><button type="button" class="goal-primary" id="budgetSave">Bütçeyi Kaydet</button></div></div></div>';
- document.body.insertAdjacentHTML('beforeend',html);const m=document.getElementById('budgetEditModal');document.getElementById('budgetCancel').onclick=()=>m.remove();document.getElementById('budgetSave').onclick=()=>{const cat=document.getElementById('budgetCat').value,amount=Number(String(document.getElementById('budgetAmount').value).replace(',','.'));if(!cat||!Number.isFinite(amount)||amount<=0){showAlertCard('Geçerli bir kategori ve bütçe girin.','Bütçe eklenemedi','error');return}data.budgets=data.budgets||{};data.budgets[cat]=amount;save();m.remove();render();toast('Bütçe kaydedildi.');};m.onclick=e=>{if(e.target===m)m.remove()};
+ const cats=(data.categories?.expense||[]).filter(Boolean),selected=category||cats[0]||'Market',existing=Number((data.budgets||{})[selected]||0);
+ const html='<div class="settings-modal" id="budgetEditModal"><div class="settings-modal-card goal-modal-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon('chart')+'</span><div><h3>Kategori bütçesi</h3><p>Aylık kategori limitini tanımla veya güncelle.</p></div></div><div class="goal-fields"><div class="goal-field"><label>Kategori</label><select id="budgetCat">'+cats.map(x=>'<option value="'+esc(x)+'" '+(x===selected?'selected':'')+'>'+esc(x)+'</option>').join('')+'</select></div><div class="goal-field"><label>Aylık bütçe</label><input id="budgetAmount" inputmode="decimal" value="'+(existing?String(existing):'')+'" placeholder="5.000"></div></div><div class="goal-actions"><button type="button" class="goal-cancel" id="budgetCancel">Vazgeç</button><button type="button" class="goal-primary" id="budgetSave">Bütçeyi Kaydet</button></div></div></div>';
+ document.body.insertAdjacentHTML('beforeend',html);const m=document.getElementById('budgetEditModal'),cat=document.getElementById('budgetCat'),amount=document.getElementById('budgetAmount');
+ cat.onchange=()=>{amount.value=String(Number((data.budgets||{})[cat.value]||'' )||'')};
+ document.getElementById('budgetCancel').onclick=()=>m.remove();
+ document.getElementById('budgetSave').onclick=()=>{
+  const categoryName=cat.value,value=Number(String(amount.value).replace(',','.'));
+  if(!categoryName||!Number.isFinite(value)||value<=0){showAlertCard('Geçerli bir kategori ve bütçe girin.','Bütçe eklenemedi','error');return}
+  data.budgets=data.budgets||{};data.budgets[categoryName]=value;save();m.remove();render();toast('Kategori bütçesi kaydedildi.');
+ };m.onclick=e=>{if(e.target===m)m.remove()};
 }
-
 function showAppLanguage(){
  const current=data.settings.language==='en'?'en':'tr',en=current==='en';
  const options=[{value:'tr',label:'Türkçe',desc:'Uygulama Türkçe görüntülenir.'},{value:'en',label:'English',desc:'Use Denge in English.'}];
