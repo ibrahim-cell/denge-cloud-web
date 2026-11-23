@@ -1000,7 +1000,7 @@ function add(){
  +'<div class="type-switch four-types"><button type="button" id="incomeBtn" class="type-btn income-type '+active('income')+'"><span class="type-svg">'+sicon('income')+'</span><b>Gelir</b></button><button type="button" id="expenseBtn" class="type-btn expense-type '+active('expense')+'"><span class="type-svg">'+sicon('expense')+'</span><b>Gider</b></button><button type="button" id="transferBtn" class="type-btn transfer-type '+active('transfer')+'"><span class="type-svg">'+sicon('transfer')+'</span><b>Transfer</b></button><button type="button" id="debtBtn" class="type-btn debt-type '+active('debt')+'"><span class="type-svg">'+sicon('debt')+'</span><b>Borç / Alacak</b></button></div>'
  +'<div class="add-form" id="addForm"><div id="normalFields"><label>Tutar</label><div class="amount-field"><span>₺</span><input id="amount" inputmode="decimal" placeholder="0"></div><label>Kategori</label><div class="select-wrap picker-wrap"><span class="field-icon">'+sicon('category')+'</span><select id="category" class="field picker-hidden">'+catList.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select><button type="button" id="categoryPicker" class="picker-trigger field"><span class="picker-value">'+esc(catList[0]||'Kategori seç')+'</span><span class="chevron">›</span></button></div><label>Hesap</label><div class="select-wrap picker-wrap"><span class="field-icon">'+sicon('account')+'</span><select id="account" class="field picker-hidden">'+data.accounts.map(x=>'<option>'+esc(x.name)+'</option>').join('')+'</select><button type="button" id="accountPicker" class="picker-trigger field"><span class="picker-value">'+esc(data.accounts[0]?.name||'Hesap seç')+'</span><span class="chevron">›</span></button></div></div>'
  +'<div id="transferFields" class="special-fields" hidden><div class="special-title"><span class="special-ico">'+sicon('transfer')+'</span><div><b>Hesaplar arası para transferi</b><small>Gelir veya gider oluşturmaz.</small></div></div><label>Nereden</label><select id="fromAccount" class="field">'+data.accounts.map(x=>'<option>'+esc(x.name)+'</option>').join('')+'</select><label>Nereye</label><select id="toAccount" class="field">'+data.accounts.map(x=>'<option>'+esc(x.name)+'</option>').join('')+'</select><label>Tutar</label><div class="amount-field"><span>₺</span><input id="transferAmount" inputmode="decimal" placeholder="0"></div></div>'
- +'<div id="debtFields" class="special-fields" hidden><div class="special-title debt-title"><span class="special-ico">'+sicon('debt')+'</span><div><b>Borç / Alacak</b><small>Para hareketini borç bakiyesinden ayrı takip et.</small></div></div><label>İşlem türü</label><div class="debt-choice"><button type="button" data-debt-kind="verildi" class="active">Borç Ver</button><button type="button" data-debt-kind="tahsilat">Tahsilat Al</button></div><label>Kişi</label><input id="debtPerson" class="field" placeholder="Örn: Kişi adı"><label>Tutar</label><div class="amount-field"><span>₺</span><input id="debtAmount" inputmode="decimal" placeholder="0"></div><label>Hesap</label><select id="debtAccount" class="field">'+data.accounts.map(x=>'<option>'+esc(x.name)+'</option>').join('')+'</select></div>'
+ +'<div id="debtFields" class="special-fields" hidden><div class="special-title debt-title"><span class="special-ico">'+sicon('debt')+'</span><div><b>Borç / Alacak</b><small>Para hareketini borç bakiyesinden ayrı takip et.</small></div></div><label>İşlem türü</label><div class="debt-choice"><button type="button" data-debt-kind="verildi" class="active">Borç Verdim</button><button type="button" data-debt-kind="alindi">Borç Aldım</button></div><label>Kişi</label><input id="debtPerson" class="field" placeholder="Örn: Kişi adı"><label>Tutar</label><div class="amount-field"><span>₺</span><input id="debtAmount" inputmode="decimal" placeholder="0"></div><label>Hesap</label><select id="debtAccount" class="field">'+data.accounts.map(x=>'<option>'+esc(x.name)+'</option>').join('')+'</select></div>'
  +'<div id="commonFields"><label>Tarih</label><div class="select-wrap date-wrap"><span class="field-icon">'+sicon('calendar')+'</span><input id="txDate" type="hidden" value="'+today+'"><button type="button" id="datePickerBtn" class="field picker-trigger date-trigger"><span class="picker-value" id="datePickerLabel">'+formatDateTR(today)+'</span><span class="chevron">›</span></button></div><label>Açıklama <small>(isteğe bağlı)</small></label><input id="name" class="field description-field" placeholder="Örn: Eylül maaşı"></div><button id="saveTx" class="primary save-tx">Kaydet</button></div></div>'
 }
 
@@ -1495,11 +1495,11 @@ function showDebtRecordModal(debtId){
   let record=debt,origin;
   if(editing){
    const snapshot=JSON.parse(JSON.stringify(debt));
+   origin=findDebtOriginTransaction(debt);
    debt.person=person;debt.direction=newDirection;debt.amount=amount;debt.principalAmount=amount;
    debt.interestRateMonthly=rate;debt.dueDate=dueDate;debt.account=account;debt.reminderDays=reminderDays;
    const ledger=recalculateDebtLedger(debt);
    if(!ledger.ok){Object.keys(debt).forEach(k=>delete debt[k]);Object.assign(debt,snapshot);showAlertCard('Yeni anapara, mevcut ödemelerle uyuşmuyor. Ödeme geçmişini aşan daha düşük bir anapara giremezsin.','Borç bakiyesi korunuyor','error');return}
-   origin=findDebtOriginTransaction(debt);
    if(!origin){
     origin={id:debt.openingTransactionId||'tx-'+debt.id,type:'debt',category:'Borç / Alacak',date:String(debt.createdAt||localDateISO()).slice(0,10),time:'00:00',debtId:String(debt.id)};
     data.transactions.unshift(origin);debt.openingTransactionId=String(origin.id);
@@ -2394,37 +2394,14 @@ document.querySelectorAll('[data-debt-kind]').forEach(x=>x.onclick=()=>{document
  const person=document.getElementById('debtPerson').value.trim();
  const kind=document.querySelector('[data-debt-kind].active')?.dataset.debtKind||'verildi';
  const account=document.getElementById('debtAccount').value;
+ const note=document.getElementById('name').value.trim();
  if(!Number.isFinite(amount)||amount<=0||!person){showAlertCard('Kişi ve geçerli tutar girin.','Borç bilgisi eksik','error');return}
- const direction='receivable';
- let debt=data.debts.find(x=>String(x.person||'').toLocaleLowerCase('tr-TR')===person.toLocaleLowerCase('tr-TR')&&x.status!=='closed'&&debtDirectionOf(x)===direction);
- if(kind==='verildi'){
-  if(debt){
-   const principal=debtPrincipalRemaining(debt);
-   debt.amount=Number(debt.amount||0)+amount;
-   debt.principalAmount=Number(debt.principalAmount!==undefined?debt.principalAmount:debt.amount-amount)+amount;
-   debt.principalRemaining=principal+amount;debt.remaining=debtPrincipalRemaining(debt)+Number(debt.interestBalance||0);
-   debt.status='open';debt.account=account||debt.account;
-  }else{
-   debt={id:'debt-'+id,person,direction,amount,principalAmount:amount,principalRemaining:amount,remaining:amount,status:'open',account,interestRateMonthly:0,interestBalance:0,interestLastCalculatedAt:new Date().toISOString(),createdAt:new Date().toISOString(),payments:[]};
-   data.debts.push(debt);
-  }
- }else{
-  if(!debt){showAlertCard('Bu kişi için açık bir alacak kaydı bulunamadı. Önce borç kaydı oluştur.','Tahsilat yapılamadı','error');return}
-  const outstanding=debtOutstanding(debt);
-  if(amount>outstanding+0.01){showAlertCard('Tahsilat tutarı kalan borçtan büyük olamaz.','Tutar fazla','error');return}
-  const now=new Date(date+'T12:00:00'),interestDue=debtAccruedInterest(debt,now),principal=debtPrincipalRemaining(debt);
-  const interestPaid=Math.min(amount,interestDue),principalPaid=Math.min(principal,Math.max(0,amount-interestPaid));
-  debt.interestBalance=Math.max(0,Math.round((interestDue-interestPaid)*100)/100);
-  debt.interestLastCalculatedAt=now.toISOString();debt.principalRemaining=Math.max(0,Math.round((principal-principalPaid)*100)/100);
-  debt.remaining=Math.max(0,Math.round((debt.principalRemaining+debt.interestBalance)*100)/100);
-  debt.payments=Array.isArray(debt.payments)?debt.payments:[];
-  debt.payments.push({id:'payment-'+id,amount,date,interestPaid,principalPaid});
-  debt.status=debt.remaining<=0.01?'closed':'open';
- }
- syncDebtReminder(debt);
- const signed=kind==='tahsilat'?amount:-amount;
- data.transactions.unshift({id,type:'debt',name:kind==='tahsilat'?'Tahsilat Alındı':'Borç Verildi',category:'Borç / Alacak',amount:signed,date,time:new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),account,person,debtId:String(debt.id),debtDirection:'receivable',debtType:kind,debtTypeLabel:kind==='tahsilat'?'Tahsilat':'Borç Verildi'});
- save();nav('transactions');return
+ const direction=kind==='alindi'?'payable':'receivable';
+ const debtId='debt-'+Date.now(),createdAt=new Date(date+'T12:00:00').toISOString(),openingTransactionId='tx-'+debtId;
+ const debt={id:debtId,person,direction,amount,principalAmount:amount,principalRemaining:amount,remaining:amount,status:'open',account,dueDate:'',interestRateMonthly:0,interestBalance:0,interestLastCalculatedAt:createdAt,createdAt,reminderDays:Number(data.settings.debtReminderDays??3),payments:[],openingTransactionId,note};
+ data.debts=Array.isArray(data.debts)?data.debts:[];data.debts.push(debt);
+ const transaction={id:openingTransactionId,type:'debt',name:note|| (direction==='receivable'?'Borç verildi':'Borç alındı'),category:'Borç / Alacak',amount:direction==='receivable'?-amount:amount,date,time:new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),account,person,debtId:String(debt.id),openingTransactionId,debtDirection:direction,debtTypeLabel:direction==='receivable'?'Borç Verildi':'Borç Alındı'};
+ data.transactions.unshift(transaction);syncDebtReminder(debt);save();nav('debtOverview');return
 }const n=Number(String(document.getElementById('amount').value).replace(',','.')),name=document.getElementById('name').value.trim(),account=document.getElementById('account').value;if(!Number.isFinite(n)||n<=0){showAlertCard('Geçerli bir tutar girin.','Geçersiz tutar','error');return}const sign=type==='expense'?-n:n;adjust(account,sign);data.transactions.unshift({id,name:name||cat.value,category:cat.value,amount:sign,date,time:new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),account,type});save();nav('transactions')}}}
 let appLocked=false;
 function setPinGateVisible(locked){
