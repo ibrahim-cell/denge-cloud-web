@@ -8,6 +8,13 @@ on:
       - "public/index.html"
       - "service-worker.js"
       - ".github/workflows/denge-ui-smoke.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "public/index.html"
+      - "service-worker.js"
+      - ".github/workflows/denge-ui-smoke.yml"
   workflow_dispatch:
 
 permissions:
