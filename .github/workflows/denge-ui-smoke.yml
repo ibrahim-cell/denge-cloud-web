@@ -87,14 +87,6 @@ jobs:
                 await page.locator('#app .profile-head h1').waitFor({ timeout: 5000 });
               }
 
-              await page.locator('button[data-nav="profile"]').first().click();
-              await page.locator('button[data-nav="settings"]').first().click();
-              await page.getByText('Veri yönetimi', { exact: true }).waitFor({ timeout: 5000 });
-              await page.locator('#exportData .seticon svg').waitFor({ state: 'attached', timeout: 5000 });
-              if (await page.locator('#exportData .seticon').innerText() !== '') {
-                throw new Error(target.name + ': export icon should be SVG, not a text glyph');
-              }
-
               await page.locator('button[data-nav="debtOverview"]').click();
               await page.getByText('Borç / Alacak', { exact: true }).waitFor({ timeout: 5000 });
 
@@ -102,6 +94,10 @@ jobs:
               await page.locator('button[data-nav="settings"]').first().click();
               await page.getByText('Veri yönetimi', { exact: true }).waitFor({ timeout: 5000 });
               await page.getByText('Görünüm', { exact: true }).waitFor({ timeout: 5000 });
+              await page.locator('#exportData .seticon svg').waitFor({ state: 'attached', timeout: 5000 });
+              if (await page.locator('#exportData .seticon').innerText() !== '') {
+                throw new Error(target.name + ': export icon should be SVG, not a text glyph');
+              }
 
               const dimensions = await page.evaluate(() => ({
                 width: window.innerWidth,
