@@ -60,6 +60,10 @@ jobs:
                 hasTouch: target.mobile
               });
               const page = await context.newPage();
+              const selectStyledOption = async (id, value) => {
+                await page.locator('[data-styled-select="' + id + '"]').click();
+                await page.locator('#styledSelectModal [data-styled-value="' + value + '"]').click();
+              };
               const pageErrors = [];
               page.on('pageerror', error => pageErrors.push(error.message));
               await page.goto('http://127.0.0.1:4173/index.html', { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -203,7 +207,7 @@ jobs:
               await page.locator('#debtOverviewAdd').click();
               await page.locator('#debtPerson').fill('Smoke Aldığım Borç');
               await page.locator('#debtAmount').fill('300');
-              await page.locator('#debtAccount').selectOption({ label: 'Banka' });
+              await selectStyledOption('debtAccount', 'Banka');
               await page.locator('[data-debt-kind="alindi"]').click();
               await page.locator('#saveTx').click();
               await page.getByText('Smoke Aldığım Borç', { exact: true }).waitFor({ timeout: 5000 });
@@ -212,7 +216,7 @@ jobs:
               await page.locator('#debtOverviewAdd').click();
               await page.locator('#debtPerson').fill('Smoke Tahsilat Kaynağı');
               await page.locator('#debtAmount').fill('180');
-              await page.locator('#debtAccount').selectOption({ label: 'Banka' });
+              await selectStyledOption('debtAccount', 'Banka');
               await page.locator('[data-debt-kind="verildi"]').click();
               await page.locator('#saveTx').click();
               await page.getByText('Smoke Tahsilat Kaynağı', { exact: true }).waitFor({ timeout: 5000 });
@@ -221,9 +225,9 @@ jobs:
               await page.locator('#debtOverviewAdd').click();
               await page.locator('[data-debt-kind="tahsilat"]').click();
               const receivableOption = await page.locator('#debtTargetRecord option').filter({ hasText: 'Smoke Tahsilat Kaynağı' }).getAttribute('value');
-              await page.locator('#debtTargetRecord').selectOption(receivableOption);
+              await selectStyledOption('debtTargetRecord', receivableOption);
               await page.locator('#debtAmount').fill('40');
-              await page.locator('#debtAccount').selectOption({ label: 'Banka' });
+              await selectStyledOption('debtAccount', 'Banka');
               await page.locator('#saveTx').click();
               const collectionState = await page.evaluate(() => {
                 const d = window.__dengeCloudBridge.getData();
@@ -239,9 +243,9 @@ jobs:
               await page.locator('#debtOverviewAdd').click();
               await page.locator('[data-debt-kind="geriOdeme"]').click();
               const payableOption = await page.locator('#debtTargetRecord option').filter({ hasText: 'Smoke Aldığım Borç' }).getAttribute('value');
-              await page.locator('#debtTargetRecord').selectOption(payableOption);
+              await selectStyledOption('debtTargetRecord', payableOption);
               await page.locator('#debtAmount').fill('70');
-              await page.locator('#debtAccount').selectOption({ label: 'Banka' });
+              await selectStyledOption('debtAccount', 'Banka');
               await page.locator('#saveTx').click();
               const repaymentState = await page.evaluate(() => {
                 const d = window.__dengeCloudBridge.getData();
