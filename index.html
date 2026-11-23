@@ -592,7 +592,9 @@ window.__dengeCloudBridge={
   next.budgets=next.budgets||{};
   next.categoryIcons=next.categoryIcons||{};
   next.widgetNote=String(next.widgetNote||'').slice(0,100);
-  data=next;localStorage.setItem(KEY,JSON.stringify(data));
+  data=next;
+  try{pruneDeletedDebtOrigins()}catch(error){console.warn('Silinen borç kayıtları temizlenemedi:',error)}
+  localStorage.setItem(KEY,JSON.stringify(data));
   if(typeof render==='function')render();
   try{syncNativeFinanceSchedule();checkBudgetThresholdAlerts()}catch(e){}
  }
@@ -1559,7 +1561,7 @@ function showDebtPaymentEditModal(debtId,paymentId){
   if(!ledger.ok){Object.keys(debt).forEach(k=>delete debt[k]);Object.assign(debt,snapshot);showAlertCard('Bu değişiklik kalan borçtan fazla ödeme oluşturuyor.','Ödeme güncellenemedi','error');return}
   let linked=tx;
   if(!linked){
-   linked=(data.transactions||[]).find(t=>String(t.debtId||'')===String(debt.id)&&isDebtPaymentTransaction(t)&&String(t.date||'')===String(oldDate||'')&&Math.abs(Number(t.amount)||0)===Math.abs(Number(oldAmount)||0));
+   linked=(data.transactions||[]).find(t=>isDebtPaymentTransaction(t)&&String(t.person||'').trim().toLocaleLowerCase('tr-TR')===String(debt.person||'').trim().toLocaleLowerCase('tr-TR')&&String(t.date||'')===String(oldDate||'')&&Math.abs(Number(t.amount)||0)===Math.abs(Number(oldAmount)||0));
   }
   if(linked){linked.debtPaymentId=String(payment.id);linked.debtAction='payment';linked.date=date;linked.account=account;linked.person=debt.person;linked.debtDirection=direction;linked.amount=direction==='receivable'?amount:-amount;linked.name=direction==='receivable'?'Borç tahsilatı':'Borç geri ödemesi';linked.debtTypeLabel=direction==='receivable'?'Tahsilat':'Geri Ödeme'}
   syncDebtReminder(debt);save();m.remove();render();toast('Ödeme hareketi güncellendi.');
@@ -2213,8 +2215,17 @@ async function deleteTransactionAndSync(id){
     index=payments.findIndex(payment=>String(payment.date||'')===String(deletedTx.date||'')&&Math.abs(Number(payment.amount)||0)===Math.abs(Number(deletedTx.amount)||0));
    }
    if(index>=0)payments.splice(index,1);
+   else{
+    // Legacy quick repayments did not store a payment array; reverse their
+    // principal reduction so removing the movement restores the outstanding debt.
+    const amount=Math.abs(Number(deletedTx.amount)||0);
+    const principalBase=Math.max(0,Number(debt.principalAmount!==undefined?debt.principalAmount:debt.amount)||0);
+    const principalNow=debtPrincipalRemaining(debt);
+    debt.principalRemaining=Math.min(principalBase,principalNow+amount);
+    debt.remaining=Math.max(debt.principalRemaining,Number(debt.remaining||0)+amount);
+   }
    debt.payments=payments;
-   const recalculated=recalculateDebtLedger(debt);
+   const recalculated=payments.length||Number(debt.interestRateMonthly)>0?recalculateDebtLedger(debt):{ok:true};
    if(!recalculated.ok){showAlertCard('Ödeme silindi ancak borç bakiyesi yeniden hesaplanamadı. Kayıt korunuyor.','Borç kaydı kontrol edilmeli','error');return}
    syncDebtReminder(debt);
    markTransactionDeleted(deletedTx.id);
