@@ -232,7 +232,7 @@
 
 /* Denge forms: native account/date controls replaced with in-app pickers */
 .themed-picker-wrap{width:100%;margin:6px 0 14px;position:relative}
-.themed-picker-wrap .themed-picker-trigger{width:100%;min-height:47px;height:auto;margin:0;padding:12px 42px 12px 46px;border-radius:16px;font-size:13px;font-weight:650;justify-content:space-between;background:#fff;border:1px solid #e9e7f0;box-shadow:0 2px 8px rgba(39,35,75,.025)}
+.themed-picker-wrap .themed-picker-trigger{width:100%;min-height:47px;height:auto;margin:0;padding:12px 42px 12px 16px;border-radius:16px;font-size:13px;font-weight:650;justify-content:space-between;background:#fff;border:1px solid #e9e7f0;box-shadow:0 2px 8px rgba(39,35,75,.025)}
 .themed-picker-wrap .field-icon{z-index:1;pointer-events:none;color:#766be8;left:14px}
 .themed-picker-wrap .themed-picker-trigger .chevron{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#9299a9;font-size:20px;line-height:1}
 .themed-picker-wrap .picker-value{padding-right:0}
@@ -1355,7 +1355,7 @@ function styledSelectMarkup(id,values,selectedValue,title,iconKey='account',plac
  const selected=String(selectedValue??'');
  const current=options.find(item=>item.value===selected)||options[0]||null;
  const optionHtml=(current&&selected!==''?'<option value="">'+esc(placeholder)+'</option>':'<option value="" '+(!current?'selected':'')+'>'+esc(placeholder)+'</option>')+options.map(item=>'<option value="'+esc(item.value)+'" '+(current&&item.value===current.value?'selected':'')+'>'+esc(item.label)+'</option>').join('');
- return '<div class="select-wrap picker-wrap themed-picker-wrap"><span class="field-icon">'+sicon(iconKey)+'</span><select id="'+esc(id)+'" class="field picker-hidden">'+optionHtml+'</select><button type="button" class="field picker-trigger themed-picker-trigger" data-styled-select="'+esc(id)+'" data-select-title="'+esc(title)+'" data-select-icon="'+esc(iconKey)+'"><span class="picker-value">'+esc(current?current.label:placeholder)+'</span><span class="chevron">›</span></button></div>';
+ return '<div class="select-wrap picker-wrap themed-picker-wrap"><select id="'+esc(id)+'" class="field picker-hidden">'+optionHtml+'</select><button type="button" class="field picker-trigger themed-picker-trigger" data-styled-select="'+esc(id)+'" data-select-title="'+esc(title)+'" data-select-icon="'+esc(iconKey)+'"><span class="picker-value">'+esc(current?current.label:placeholder)+'</span><span class="chevron">›</span></button></div>';
 }
 function syncStyledSelectLabel(id){
  const select=document.getElementById(id),trigger=document.querySelector('[data-styled-select="'+id+'"]');
