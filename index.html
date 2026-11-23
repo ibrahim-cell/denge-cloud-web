@@ -534,6 +534,7 @@ if(!Array.isArray(data.netWorthHistory)) data.netWorthHistory=[];
 delete data.migration;
 data.accounts=(data.accounts||[]).filter(a=>String(a?.name||'').trim().toLowerCase()!=='hesap belirtilmemiş');
 (data.accounts||[]).forEach(a=>{if(a.openingBalance===undefined)a.openingBalance=0;if(a.balance===undefined)a.balance=0;if(!a.type)a.type=inferAccountType(a.name);});
+pruneDeletedDebtOrigins();
 (data.debts||[]).forEach(d=>{if(d&&d.dueDate)syncDebtReminder(d)});
 save();
 const currentMonth=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
@@ -725,6 +726,59 @@ function syncDebtReminder(debt){
  reminder.daysBefore=Math.max(0,Number(debt.reminderDays??3));reminder.time=String(debt.reminderTime||'09:00');
  reminder.repeatMonthly=false;reminder.active=data.settings.debtDueReminders!==false&&debt.status!=='closed'&&reminder.amount>0;
  reminder.note='Denge borç/alacak vade hatırlatması';
+}
+function isDebtPaymentTransaction(tx){
+ if(!tx||tx.type!=='debt')return false;
+ if(tx.debtPaymentId||tx.debtAction==='payment')return true;
+ return ['Tahsilat','Ödeme','Borç tahsilatı','Borç geri ödemesi'].includes(String(tx.debtTypeLabel||tx.name||''));
+}
+function recalculateDebtLedger(debt){
+ if(!debt)return {ok:false,reason:'missing'};
+ const principalBase=Math.max(0,Number(debt.principalAmount!==undefined?debt.principalAmount:debt.amount)||0);
+ const rate=Math.max(0,Number(debt.interestRateMonthly)||0);
+ let principal=principalBase,interest=0,last=new Date(debt.createdAt||localDateISO()+'T12:00:00');
+ if(Number.isNaN(last.getTime()))last=new Date(localDateISO()+'T12:00:00');
+ const payments=(Array.isArray(debt.payments)?debt.payments:[]).slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+ for(const payment of payments){
+  const when=new Date(String(payment.date||localDateISO()).slice(0,10)+'T12:00:00');
+  if(Number.isNaN(when.getTime()))return {ok:false,reason:'invalid-date'};
+  if(when<last)when.setTime(last.getTime());
+  const elapsed=Math.max(0,(when.getTime()-last.getTime())/(86400000*30.4375));
+  interest=Math.max(0,interest+principal*rate/100*elapsed);
+  const amount=Math.max(0,Number(payment.amount)||0);
+  if(amount>principal+interest+0.01)return {ok:false,reason:'overpayment',payment,available:principal+interest};
+  const interestPaid=Math.min(amount,interest);
+  const principalPaid=Math.min(principal,Math.max(0,amount-interestPaid));
+  payment.interestPaid=Math.round(interestPaid*100)/100;
+  payment.principalPaid=Math.round(principalPaid*100)/100;
+  interest=Math.max(0,Math.round((interest-interestPaid)*100)/100);
+  principal=Math.max(0,Math.round((principal-principalPaid)*100)/100);
+  last=when;
+ }
+ debt.principalAmount=principalBase;
+ debt.principalRemaining=Math.round(principal*100)/100;
+ debt.interestBalance=Math.round(interest*100)/100;
+ debt.interestLastCalculatedAt=last.toISOString();
+ debt.remaining=Math.round((debt.principalRemaining+debt.interestBalance)*100)/100;
+ debt.status=debt.remaining<=0.01?'closed':'open';
+ return {ok:true};
+}
+function markTransactionDeleted(id){
+ if(id==null)return;
+ data._denge_deleted=data._denge_deleted&&typeof data._denge_deleted==='object'?data._denge_deleted:{};
+ data._denge_deleted.transactions=data._denge_deleted.transactions&&typeof data._denge_deleted.transactions==='object'?data._denge_deleted.transactions:{};
+ data._denge_deleted.transactions[String(id)]=new Date().toISOString();
+}
+function pruneDeletedDebtOrigins(){
+ const deleted=data._denge_deleted&&data._denge_deleted.transactions||{};
+ if(!Array.isArray(data.debts))return;
+ data.debts=data.debts.filter(debt=>{
+  const origin=debt&&debt.openingTransactionId||'tx-'+String(debt&&debt.id||'');
+  if(!debt||!deleted[String(origin)])return true;
+  data.transactions=(data.transactions||[]).filter(tx=>String(tx.debtId)!==String(debt.id));
+  data.reminders=(data.reminders||[]).filter(reminder=>String(reminder.id)!=='debt-due-'+String(debt.id));
+  return false;
+ });
 }
 function processGoalContributions(){
  data.goals=Array.isArray(data.goals)?data.goals:[];
