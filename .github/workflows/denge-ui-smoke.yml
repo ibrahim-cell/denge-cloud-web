@@ -192,20 +192,65 @@ jobs:
                 throw new Error(target.name + ': deleting the opening debt transaction left an orphan debt record');
               }
 
-              // Quick entry must distinguish money lent from money borrowed.
+              // Quick entry: borrow 300 into Banka.
               await page.locator('#debtOverviewAdd').click();
               await page.locator('#debtPerson').fill('Smoke Aldığım Borç');
               await page.locator('#debtAmount').fill('300');
+              await page.locator('#debtAccount').selectOption({ label: 'Banka' });
               await page.locator('[data-debt-kind="alindi"]').click();
               await page.locator('#saveTx').click();
               await page.getByText('Smoke Aldığım Borç', { exact: true }).waitFor({ timeout: 5000 });
 
-              // A borrowed amount increases the selected account balance.
-              await page.locator('button.navitem[data-nav="profile"]').click();
-              await page.locator('button[data-nav="accounts"]').first().click();
-              const cashAccount = page.locator('.account').filter({ hasText: 'Nakit' }).first();
-              if (!(await cashAccount.locator('strong.expense').count())) {
-                throw new Error(target.name + ': borrowing did not increase the account balance as expected');
+              // Create a separate receivable to test collection.
+              await page.locator('#debtOverviewAdd').click();
+              await page.locator('#debtPerson').fill('Smoke Tahsilat Kaynağı');
+              await page.locator('#debtAmount').fill('180');
+              await page.locator('#debtAccount').selectOption({ label: 'Banka' });
+              await page.locator('[data-debt-kind="verildi"]').click();
+              await page.locator('#saveTx').click();
+              await page.getByText('Smoke Tahsilat Kaynağı', { exact: true }).waitFor({ timeout: 5000 });
+
+              // Collect 40: account increases and receivable falls from 180 to 140.
+              await page.locator('#debtOverviewAdd').click();
+              await page.locator('[data-debt-kind="tahsilat"]').click();
+              const receivableOption = await page.locator('#debtTargetRecord option').filter({ hasText: 'Smoke Tahsilat Kaynağı' }).getAttribute('value');
+              await page.locator('#debtTargetRecord').selectOption(receivableOption);
+              await page.locator('#debtAmount').fill('40');
+              await page.locator('#debtAccount').selectOption({ label: 'Banka' });
+              await page.locator('#saveTx').click();
+              const collectionState = await page.evaluate(() => {
+                const d = window.__dengeCloudBridge.getData();
+                const debt = d.debts.find(x => x.person === 'Smoke Tahsilat Kaynağı');
+                return { remaining: debt && debt.remaining, direction: debt && debt.direction,
+                  payment: d.transactions.find(x => x.debtId === debt.id && x.debtAction === 'payment')?.amount };
+              });
+              if (collectionState.remaining !== 140 || collectionState.direction !== 'receivable' || collectionState.payment !== 40) {
+                throw new Error(target.name + ': collection did not reduce receivable correctly ' + JSON.stringify(collectionState));
+              }
+
+              // Repay 70: account decreases and payable falls from 300 to 230.
+              await page.locator('#debtOverviewAdd').click();
+              await page.locator('[data-debt-kind="geriOdeme"]').click();
+              const payableOption = await page.locator('#debtTargetRecord option').filter({ hasText: 'Smoke Aldığım Borç' }).getAttribute('value');
+              await page.locator('#debtTargetRecord').selectOption(payableOption);
+              await page.locator('#debtAmount').fill('70');
+              await page.locator('#debtAccount').selectOption({ label: 'Banka' });
+              await page.locator('#saveTx').click();
+              const repaymentState = await page.evaluate(() => {
+                const d = window.__dengeCloudBridge.getData();
+                const debt = d.debts.find(x => x.person === 'Smoke Aldığım Borç');
+                const account = d.accounts.find(x => x.name === 'Banka');
+                let balance = Number(account.openingBalance || 0);
+                d.transactions.forEach(t => {
+                  if (t.type === 'transfer') {
+                    if (t.fromAccount === 'Banka') balance -= Number(t.transferAmount || t.amount || 0);
+                    if (t.toAccount === 'Banka') balance += Number(t.transferAmount || t.amount || 0);
+                  } else if (t.account === 'Banka') balance += Number(t.amount || 0);
+                });
+                return { remaining: debt && debt.remaining, direction: debt && debt.direction, balance };
+              });
+              if (repaymentState.remaining !== 230 || repaymentState.direction !== 'payable' || repaymentState.balance !== 90) {
+                throw new Error(target.name + ': repayment/account balance mismatch ' + JSON.stringify(repaymentState));
               }
 
               // Quick widget note persists through app state and render
