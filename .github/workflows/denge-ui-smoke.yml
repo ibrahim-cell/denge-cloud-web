@@ -213,7 +213,8 @@ jobs:
               // Collect 40: account increases and receivable falls from 180 to 140.
               await page.locator('#debtOverviewAdd').click();
               await page.locator('[data-debt-kind="tahsilat"]').click();
-              await page.locator('#debtTargetRecord').selectOption({ label: /Smoke Tahsilat Kaynağı/ });
+              const receivableOption = await page.locator('#debtTargetRecord option').filter({ hasText: 'Smoke Tahsilat Kaynağı' }).getAttribute('value');
+              await page.locator('#debtTargetRecord').selectOption(receivableOption);
               await page.locator('#debtAmount').fill('40');
               await page.locator('#debtAccount').selectOption({ label: 'Banka' });
               await page.locator('#saveTx').click();
@@ -230,7 +231,8 @@ jobs:
               // Repay 70: account decreases and payable falls from 300 to 230.
               await page.locator('#debtOverviewAdd').click();
               await page.locator('[data-debt-kind="geriOdeme"]').click();
-              await page.locator('#debtTargetRecord').selectOption({ label: /Smoke Aldığım Borç/ });
+              const payableOption = await page.locator('#debtTargetRecord option').filter({ hasText: 'Smoke Aldığım Borç' }).getAttribute('value');
+              await page.locator('#debtTargetRecord').selectOption(payableOption);
               await page.locator('#debtAmount').fill('70');
               await page.locator('#debtAccount').selectOption({ label: 'Banka' });
               await page.locator('#saveTx').click();
