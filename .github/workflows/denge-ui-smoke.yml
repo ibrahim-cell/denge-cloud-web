@@ -178,6 +178,8 @@ jobs:
                 return state.recurring.some(r => r.name === 'Smoke 31 Gün Döngüsü' && r.dayOfMonth === 30 && r.statementDay === 16 && r.paymentDueDay === 29);
               }, null, { timeout: 5000 });
 
+              await page.locator('button.navitem[data-nav="profile"]').click();
+              await page.locator('#app .profile-head h1').waitFor({ timeout: 5000 });
               await page.locator('button[data-nav="reminders"]').click();
               await page.locator('#addReminder').click();
               const reminderTestDate = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10);
