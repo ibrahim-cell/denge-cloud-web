@@ -314,7 +314,8 @@ jobs:
                 });
                 return { remaining: debt && debt.remaining, direction: debt && debt.direction, balance };
               });
-              if (repaymentState.remaining !== 230 || repaymentState.direction !== 'payable' || repaymentState.balance !== 90) {
+              const expectedBankaAfterTransfer = 90 + (transferAccounts[1] === 'Banka' ? 275 : transferAccounts[0] === 'Banka' ? -275 : 0);
+              if (repaymentState.remaining !== 230 || repaymentState.direction !== 'payable' || repaymentState.balance !== expectedBankaAfterTransfer) {
                 throw new Error(target.name + ': repayment/account balance mismatch ' + JSON.stringify(repaymentState));
               }
 
