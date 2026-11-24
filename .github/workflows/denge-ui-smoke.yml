@@ -79,7 +79,7 @@ jobs:
               const bodyText = await page.locator('body').innerText(); console.log(target.name + ' body: ' + bodyText.slice(0,1200)); console.log(target.name + ' page errors: ' + JSON.stringify(pageErrors)); if (bodyText.trim().length < 5) throw new Error(target.name + ': app root stayed empty; pageErrors=' + pageErrors.join(' | '));
 
               // Regression: income and expense should save through the normal transaction flow.
-              await page.locator('[data-home-add="income"]').click();
+              await page.locator('.home-actions [data-home-add="income"]').click();
               if ((await page.locator('#saveTx').innerText()).trim() !== 'Kaydet') {
                 throw new Error(target.name + ': income mode save label was overwritten');
               }
@@ -92,7 +92,7 @@ jobs:
               }, null, { timeout: 5000 });
 
               await page.locator('button.navitem[data-nav="home"]').click();
-              await page.locator('[data-home-add="expense"]').click();
+              await page.locator('.home-actions [data-home-add="expense"]').click();
               await page.locator('#amount').fill('60');
               await page.locator('#name').fill('Smoke Gider Kaydı');
               await page.locator('#saveTx').click();
@@ -103,7 +103,7 @@ jobs:
 
               // The home screen must display transfers from the same transaction ledger as the Transactions page.
               await page.locator('button.navitem[data-nav="home"]').click();
-              await page.locator('[data-home-add="income"]').click();
+              await page.locator('.home-actions [data-home-add="income"]').click();
               await page.locator('#transferBtn').click();
               const transferAccounts = await page.locator('#fromAccount option').evaluateAll(options => options.map(option => option.value).filter(Boolean));
               if (transferAccounts.length < 2) throw new Error(target.name + ': at least two accounts are required for transfer smoke test');
