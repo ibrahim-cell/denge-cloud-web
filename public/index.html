@@ -246,6 +246,18 @@
 .dark .themed-picker-wrap .themed-picker-trigger,.dark .styled-date-trigger{background:#202332!important;border-color:#303345!important;color:#eef0fa!important}
 .dark .themed-picker-wrap .field-icon{color:#a99aff}
 .dark .themed-picker-wrap .themed-picker-trigger .chevron,.dark .styled-date-trigger .chevron{color:#9fa5b8}
+.styled-date-control.native-date-control{margin:0;width:100%;min-width:0}
+.styled-date-trigger{gap:10px;justify-content:flex-start}
+.styled-date-trigger .date-icon{display:inline-flex;align-items:center;justify-content:center;flex:none;color:#766be8}
+.styled-date-trigger .date-icon svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.styled-date-trigger .chevron{margin-left:auto}
+.native-select-control{display:block;width:100%;min-width:0}
+.native-select-control .themed-picker-trigger{width:100%}
+.dark .styled-date-trigger .date-icon{color:#a99aff}
+.dark .native-select-control .themed-picker-trigger{background:#202332!important;border-color:#303345!important;color:#eef0fa!important}
+.transaction-date-filter .styled-date-trigger{height:36px;min-height:36px;padding:0 8px;border-radius:10px;font-size:11px;gap:6px}
+.transaction-date-filter .styled-date-trigger .date-icon svg{width:14px;height:14px}
+@media(max-width:520px){.transaction-date-filter .styled-date-trigger{font-size:10px;padding:0 5px}.transaction-date-filter .styled-date-trigger .date-icon svg{width:12px;height:12px}}
 
 /* V11: complete dark surfaces + in-app pickers */
 .picker-hidden{display:none!important;visibility:hidden!important;}
@@ -1398,6 +1410,8 @@ function syncStyledSelectLabel(id){
  if(!select||!trigger)return;
  const option=select.options[select.selectedIndex],value=trigger.querySelector('.picker-value');
  if(value)value.textContent=option?option.textContent:(trigger.dataset.selectTitle||'Seç');
+ trigger.disabled=!!select.disabled;
+ trigger.setAttribute('aria-disabled',String(!!select.disabled));
 }
 function bindStyledSelects(root=document){
  if(!root)return;
@@ -1407,9 +1421,12 @@ function bindStyledSelects(root=document){
  triggers.forEach(trigger=>{
   if(trigger.dataset.styledSelectBound==='1')return;
   trigger.dataset.styledSelectBound='1';
+  const source=document.getElementById(trigger.dataset.styledSelect);
+  if(source&&!source.dataset.styledChangeBound){source.dataset.styledChangeBound='1';source.addEventListener('change',()=>syncStyledSelectLabel(source.id))}
+  syncStyledSelectLabel(trigger.dataset.styledSelect);
   trigger.onclick=()=>{
    const select=document.getElementById(trigger.dataset.styledSelect);
-   if(!select)return;
+   if(!select||select.disabled)return;
    const options=Array.from(select.options).filter(option=>option.value!=='');
    const title=trigger.dataset.selectTitle||'Seçim yap',iconKey=trigger.dataset.selectIcon||'account';
    const html='<div class="settings-modal picker-modal" id="styledSelectModal"><div class="settings-modal-card picker-card"><div class="picker-title"><span class="picker-modal-icon">'+sicon(iconKey)+'</span><div><h3>'+esc(title)+'</h3><p>Bir seçim yap.</p></div></div><div class="picker-list">'+(options.length?options.map(option=>'<button type="button" class="picker-item '+(option.value===select.value?'active':'')+'" data-styled-value="'+esc(option.value)+'"><span>'+esc(option.textContent)+'</span><span class="picker-check">'+(option.value===select.value?'✓':'')+'</span></button>').join(''):'<div class="picker-empty">Seçilebilecek kayıt bulunamadı.</div>')+'</div><button type="button" class="modal-close" id="styledSelectClose">Kapat</button></div></div>';
@@ -1427,9 +1444,94 @@ function bindStyledSelects(root=document){
   };
  });
 }
+function nativeSelectTitle(select){
+ const labels=[];
+ if(select.labels&&select.labels.length)labels.push(...Array.from(select.labels).map(label=>label.textContent));
+ const field=select.closest('.goal-field,.goal-field-row,.setting-field,.form-field');
+ const nested=field&&field.querySelector('label');
+ if(nested)labels.push(nested.textContent);
+ const prev=select.previousElementSibling;
+ if(prev&&prev.tagName==='LABEL')labels.push(prev.textContent);
+ const text=labels.map(x=>String(x||'').trim()).find(Boolean);
+ return text?text.replace(/[:：]$/,'')+' seç':'Seçim yap';
+}
+function nativeSelectIcon(select){
+ const id=String(select.id||'').toLowerCase();
+ if(/cat|kategori/.test(id))return 'category';
+ if(/account|hesap/.test(id))return 'account';
+ if(/remind|bildir|day/.test(id))return 'calendar';
+ if(/direction|type|kind/.test(id))return 'dots';
+ return 'category';
+}
+function enhanceNativeSelect(select){
+ if(!select||select.tagName!=='SELECT'||select.dataset.dengePickerEnhanced==='1'||select.classList.contains('picker-hidden'))return;
+ if(!select.id)select.id='denge-select-'+(++window.__dengeNativePickerId|| (window.__dengeNativePickerId=1));
+ const id=select.id,title=nativeSelectTitle(select),icon=nativeSelectIcon(select),parent=select.parentNode;
+ if(!parent)return;
+ const wrapper=document.createElement('div');wrapper.className='select-wrap picker-wrap themed-picker-wrap native-select-control';
+ const button=document.createElement('button');button.type='button';button.className='field picker-trigger themed-picker-trigger';
+ button.dataset.styledSelect=id;button.dataset.selectTitle=title;button.dataset.selectIcon=icon;
+ const value=document.createElement('span');value.className='picker-value';
+ const selected=select.options[select.selectedIndex];value.textContent=selected?selected.textContent:title;
+ const chevron=document.createElement('span');chevron.className='chevron';chevron.textContent='›';
+ button.append(value,chevron);parent.insertBefore(wrapper,select);wrapper.append(select,button);
+ select.classList.add('picker-hidden');select.dataset.dengePickerEnhanced='1';
+ if(!select.dataset.styledChangeBound){select.dataset.styledChangeBound='1';select.addEventListener('change',()=>syncStyledSelectLabel(id))}
+ syncStyledSelectLabel(id);
+}
+function nativeDateTitle(input){
+ const labels=[];
+ if(input.labels&&input.labels.length)labels.push(...Array.from(input.labels).map(label=>label.textContent));
+ const field=input.closest('.goal-field,.goal-field-row,.setting-field,.form-field');
+ const nested=field&&field.querySelector('label');
+ if(nested)labels.push(nested.textContent);
+ const prev=input.previousElementSibling;
+ if(prev&&prev.tagName==='LABEL')labels.push(prev.textContent);
+ return labels.map(x=>String(x||'').trim()).find(Boolean)||'Tarih seçin';
+}
+function enhanceNativeDate(input){
+ if(!input||input.tagName!=='INPUT'||input.type!=='date'||input.dataset.dengeDateEnhanced==='1'||input.closest('.styled-date-control'))return;
+ if(!input.id)input.id='denge-date-'+(++window.__dengeNativeDateId|| (window.__dengeNativeDateId=1));
+ const title=nativeDateTitle(input),id=input.id,parent=input.parentNode;
+ if(!parent)return;
+ const wrapper=document.createElement('div');wrapper.className='styled-date-control native-date-control';
+ const button=document.createElement('button');button.type='button';button.className='field picker-trigger date-trigger styled-date-trigger';
+ button.dataset.styledDate=id;button.dataset.datePlaceholder=title;
+ button.dataset.dateAllowEmpty=String(['goalDate','transactionDateFrom','transactionDateTo'].includes(id));
+ const icon=document.createElement('span');icon.className='date-icon';icon.innerHTML=sicon('calendar');
+ const label=document.createElement('span');label.className='date-label';label.textContent=input.value?formatDateTR(input.value):title;
+ const chevron=document.createElement('span');chevron.className='chevron';chevron.textContent='›';
+ button.append(icon,label,chevron);parent.insertBefore(wrapper,input);wrapper.append(input,button);
+ input.classList.add('picker-hidden');input.dataset.dengeDateEnhanced='1';input.tabIndex=-1;input.setAttribute('aria-hidden','true');
+ if(!input.dataset.styledDateChangeBound){input.dataset.styledDateChangeBound='1';input.addEventListener('change',()=>{label.textContent=input.value?formatDateTR(input.value):title})}
+}
+function enhanceNativePickers(root=document){
+ if(!root)return;
+ const selects=[],dates=[];
+ if(root.matches&&root.matches('select'))selects.push(root);
+ if(root.matches&&root.matches('input[type="date"]'))dates.push(root);
+ if(root.querySelectorAll){selects.push(...root.querySelectorAll('select'));dates.push(...root.querySelectorAll('input[type="date"]'))}
+ selects.forEach(enhanceNativeSelect);dates.forEach(enhanceNativeDate);
+ bindStyledSelects(root);bindStyledDatePickers(root);
+}
+function installPickerObserver(){
+ if(window.__dengePickerObserver)return;
+ if(typeof MutationObserver==='undefined')return;
+ const observer=new MutationObserver(mutations=>{
+  mutations.forEach(m=>{
+   if(m.type==='attributes'&&m.target&&m.target.tagName==='SELECT')syncStyledSelectLabel(m.target.id);
+   if(m.type==='childList'){
+    if(m.target&&m.target.tagName==='SELECT')syncStyledSelectLabel(m.target.id);
+    m.addedNodes.forEach(node=>{if(node&&node.nodeType===1)enhanceNativePickers(node)});
+   }
+  });
+ });
+ observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']});
+ window.__dengePickerObserver=observer;
+}
 function styledDatePickerMarkup(id,value,placeholder='Tarih seç',allowEmpty=false){
  const iso=String(value||'');
- return '<div class="styled-date-control"><input type="hidden" id="'+esc(id)+'" value="'+esc(iso)+'"><button type="button" class="field picker-trigger date-trigger styled-date-trigger" data-styled-date="'+esc(id)+'" data-date-placeholder="'+esc(placeholder)+'" data-date-allow-empty="'+(allowEmpty?'true':'false')+'"><span class="date-label">'+esc(iso?formatDateTR(iso):placeholder)+'</span><span class="chevron">›</span></button></div>';
+ return '<div class="styled-date-control"><input type="hidden" id="'+esc(id)+'" value="'+esc(iso)+'"><button type="button" class="field picker-trigger date-trigger styled-date-trigger" data-styled-date="'+esc(id)+'" data-date-placeholder="'+esc(placeholder)+'" data-date-allow-empty="'+(allowEmpty?'true':'false')+'"><span class="date-icon">'+sicon('calendar')+'</span><span class="date-label">'+esc(iso?formatDateTR(iso):placeholder)+'</span><span class="chevron">›</span></button></div>';
 }
 function bindStyledDatePickers(root=document){
  if(!root)return;
@@ -2503,7 +2605,7 @@ function showAddRecurring(existingRecord){
  let type=record.type==='income'?'income':'expense';
  const recKindSelect=document.getElementById('recKind');
  if(recKindSelect)recKindSelect.disabled=type==='income';
- document.querySelectorAll('[data-rec-type]').forEach(b=>b.onclick=()=>{type=b.dataset.recType;document.querySelectorAll('[data-rec-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(recKindSelect){recKindSelect.disabled=type==='income';if(type==='income')recKindSelect.value='other'}});
+ document.querySelectorAll('[data-rec-type]').forEach(b=>b.onclick=()=>{type=b.dataset.recType;document.querySelectorAll('[data-rec-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(recKindSelect){recKindSelect.disabled=type==='income';if(type==='income')recKindSelect.value='other';syncStyledSelectLabel('recKind')}});
  document.getElementById('recCancel').onclick=()=>m.remove();
  document.getElementById('recSave').onclick=()=>{
    const name=document.getElementById('recName').value.trim();
@@ -2538,7 +2640,7 @@ function showAddRecurring(existingRecord){
  };
  m.onclick=e=>{if(e.target===m)m.remove()};
 }
-function bind(){document.querySelectorAll('[data-transactions-more]').forEach(b=>b.onclick=()=>{transactionLimit+=30;render()});document.querySelectorAll('[data-transactions-less]').forEach(b=>b.onclick=()=>{transactionLimit=Math.max(30,transactionLimit-30);render()});document.querySelectorAll('[data-home-all-transactions]').forEach(b=>b.onclick=()=>{transactionsView='history';filter='all';q='';searchOpen=false;nav('transactions')});const budgetNotificationsToggle=document.getElementById('budgetNotificationsToggle'),budgetNotificationsPanel=document.getElementById('budgetNotificationsPanel');if(budgetNotificationsToggle&&budgetNotificationsPanel){budgetNotificationsToggle.onclick=()=>{const expanded=budgetNotificationsToggle.getAttribute('aria-expanded')!=='true';budgetNotificationsToggle.setAttribute('aria-expanded',String(expanded));budgetNotificationsPanel.hidden=!expanded;}}document.querySelectorAll('[data-networth-range]').forEach(b=>b.onclick=()=>{window.netWorthRange=b.dataset.networthRange;render(true)});const debtOverviewAdd=document.getElementById('debtOverviewAdd');if(debtOverviewAdd)debtOverviewAdd.onclick=()=>{window.homeAddType='debt';nav('add')};
+function bind(){enhanceNativePickers(document.getElementById('app'));installPickerObserver();document.querySelectorAll('[data-transactions-more]').forEach(b=>b.onclick=()=>{transactionLimit+=30;render()});document.querySelectorAll('[data-transactions-less]').forEach(b=>b.onclick=()=>{transactionLimit=Math.max(30,transactionLimit-30);render()});document.querySelectorAll('[data-home-all-transactions]').forEach(b=>b.onclick=()=>{transactionsView='history';filter='all';q='';searchOpen=false;nav('transactions')});const budgetNotificationsToggle=document.getElementById('budgetNotificationsToggle'),budgetNotificationsPanel=document.getElementById('budgetNotificationsPanel');if(budgetNotificationsToggle&&budgetNotificationsPanel){budgetNotificationsToggle.onclick=()=>{const expanded=budgetNotificationsToggle.getAttribute('aria-expanded')!=='true';budgetNotificationsToggle.setAttribute('aria-expanded',String(expanded));budgetNotificationsPanel.hidden=!expanded;}}document.querySelectorAll('[data-networth-range]').forEach(b=>b.onclick=()=>{window.netWorthRange=b.dataset.networthRange;render(true)});const debtOverviewAdd=document.getElementById('debtOverviewAdd');if(debtOverviewAdd)debtOverviewAdd.onclick=()=>{window.homeAddType='debt';nav('add')};
  const addDetailedDebt=document.getElementById('addDetailedDebt');if(addDetailedDebt)addDetailedDebt.onclick=()=>showDebtRecordModal();
  document.querySelectorAll('[data-debt-payment]').forEach(b=>b.onclick=()=>showDebtPaymentModal(b.dataset.debtPayment));
  document.querySelectorAll('[data-debt-edit]').forEach(b=>b.onclick=()=>showDebtRecordModal(b.dataset.debtEdit));

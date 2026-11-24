@@ -40,7 +40,7 @@ jobs:
           SERVER_PID=$!
           trap "kill $SERVER_PID || true" EXIT
           cmp -s service-worker.js public/service-worker.js || { echo "Root and public service workers differ"; exit 1; }
-          grep -q "denge-static-v1.2.2-recurring-billing-dates" public/service-worker.js || { echo "Expected recurring billing cache version missing"; exit 1; }
+          grep -q "denge-static-v1.2.3-unified-pickers" public/service-worker.js || { echo "Expected unified picker cache version missing"; exit 1; }
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:4173/index.html >/dev/null; then break; fi
             sleep 1
@@ -178,6 +178,18 @@ jobs:
                 return state.recurring.some(r => r.name === 'Smoke 31 Gün Döngüsü' && r.dayOfMonth === 30 && r.statementDay === 16 && r.paymentDueDay === 29);
               }, null, { timeout: 5000 });
 
+              await page.locator('button[data-nav="reminders"]').click();
+              await page.locator('#addReminder').click();
+              const reminderTestDate = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10);
+              await page.locator('[data-styled-date="reminderDate"]').waitFor({ timeout: 5000 });
+              await page.locator('[data-styled-date="reminderDate"]').click();
+              await page.locator('.cal-modal [data-iso="' + reminderTestDate + '"]').click();
+              await page.locator('#calOk').click();
+              if (await page.locator('#reminderDate').inputValue() !== reminderTestDate) throw new Error(target.name + ': themed reminder calendar did not apply date');
+              await selectStyledOption('reminderDays', '3');
+              await page.locator('#reminderCancel').click();
+              await page.locator('button.navitem[data-nav="profile"]').click();
+
               await page.locator('button[data-nav="debtOverview"]').click();
               await page.getByText('Borç / Alacak', { exact: true }).waitFor({ timeout: 5000 });
 
@@ -195,6 +207,9 @@ jobs:
               await page.locator('button[data-nav="budget"]').click();
               await page.locator('#budgetSpendableSummary').waitFor({ timeout: 5000 });
               await page.locator('#addBudget').click();
+              const budgetCategories = await page.locator('#budgetCat option').evaluateAll(options => options.map(option => option.value).filter(Boolean));
+              if (!budgetCategories.length) throw new Error(target.name + ': no budget categories available');
+              await selectStyledOption('budgetCat', budgetCategories[0]);
               await page.locator('#budgetAmount').fill('2500');
               await page.locator('#budgetSave').click();
               await page.locator('.budget-item').first().waitFor({ timeout: 5000 });
@@ -215,7 +230,7 @@ jobs:
               await page.locator('button[data-nav="accounts"]').first().click();
               await page.locator('#addAccount').click();
               await page.locator('#accountName').fill('Smoke Kripto');
-              await page.locator('#accountType').selectOption('crypto');
+              await selectStyledOption('accountType', 'crypto');
               await page.locator('#accountOpening').fill('500');
               await page.locator('#accountSave').click();
               await page.getByText('Kripto', { exact: true }).waitFor({ timeout: 5000 });
