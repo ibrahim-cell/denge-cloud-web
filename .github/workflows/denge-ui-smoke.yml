@@ -101,6 +101,32 @@ jobs:
                 return state.transactions.some(t => t.name === 'Smoke Gider Kaydı' && t.type === 'expense' && Number(t.amount) === -60);
               }, null, { timeout: 5000 });
 
+              // The home screen must display transfers from the same transaction ledger as the Transactions page.
+              await page.locator('#quickAddFab').click();
+              await page.locator('#transferBtn').click();
+              const transferAccounts = await page.locator('#fromAccount option').evaluateAll(options => options.map(option => option.value).filter(Boolean));
+              if (transferAccounts.length < 2) throw new Error(target.name + ': at least two accounts are required for transfer smoke test');
+              await selectStyledOption('fromAccount', transferAccounts[0]);
+              await selectStyledOption('toAccount', transferAccounts[1]);
+              await page.locator('#transferAmount').fill('275');
+              await page.locator('#name').fill('Smoke Transfer Test');
+              await page.locator('#saveTx').click();
+              await page.waitForFunction(() => {
+                const state = window.__dengeCloudBridge.getData();
+                return state.transactions.some(t => t.type === 'transfer' && t.name === 'Smoke Transfer Test' && Number(t.transferAmount) === 275);
+              }, null, { timeout: 5000 });
+              await page.locator('button.navitem[data-nav="home"]').click();
+              const homeTransfer = page.locator('.recent-item').filter({ hasText: 'Smoke Transfer Test' }).first();
+              await homeTransfer.waitFor({ timeout: 5000 });
+              const homeTransferAmount = (await homeTransfer.locator('.recent-amount.transfer').innerText()).trim();
+              const homeTransferMeta = await homeTransfer.locator('.recent-main span').innerText();
+              if (!homeTransferAmount.includes('275') || homeTransferAmount.includes('+') || homeTransferAmount.includes('0')) {
+                throw new Error(target.name + ': home recent transfer amount is wrong: ' + homeTransferAmount);
+              }
+              if (!homeTransferMeta.includes(transferAccounts[0]) || !homeTransferMeta.includes(transferAccounts[1])) {
+                throw new Error(target.name + ': home recent transfer does not show source and destination accounts: ' + homeTransferMeta);
+              }
+
               await page.locator('button.navitem[data-nav="profile"]').click();
               await page.getByText('Hesap yönetimi', { exact: true }).waitFor({ timeout: 5000 });
               await page.getByText('Finans araçları', { exact: true }).waitFor({ timeout: 5000 });
