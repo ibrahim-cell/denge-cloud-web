@@ -236,6 +236,9 @@
 .themed-picker-wrap .field-icon{z-index:1;pointer-events:none;color:#766be8;left:14px}
 .themed-picker-wrap .themed-picker-trigger .chevron{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#9299a9;font-size:20px;line-height:1}
 .themed-picker-wrap .picker-value{padding-right:0}
+/* Never render a leading account SVG inside the account value buttons. */
+.themed-picker-wrap .field-icon,.themed-picker-wrap .themed-picker-trigger svg{display:none!important}
+.themed-picker-wrap .themed-picker-trigger{padding-left:16px!important}
 .styled-date-control{width:100%;margin:6px 0 14px}
 .styled-date-trigger{width:100%;height:47px;margin:0;padding:0 14px 0 15px;border:1px solid #e9e7f0;border-radius:16px;background:#fff;color:#1c2436;display:flex;align-items:center;justify-content:space-between;text-align:left;font-size:13px;font-weight:650}
 .styled-date-trigger .date-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
