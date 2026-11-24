@@ -40,7 +40,7 @@ jobs:
           SERVER_PID=$!
           trap "kill $SERVER_PID || true" EXIT
           cmp -s service-worker.js public/service-worker.js || { echo "Root and public service workers differ"; exit 1; }
-          grep -q "denge-static-v1.2.1-picker-icon-cleanup" public/service-worker.js || { echo "Expected picker cache version missing"; exit 1; }
+          grep -q "denge-static-v1.2.2-recurring-billing-dates" public/service-worker.js || { echo "Expected recurring billing cache version missing"; exit 1; }
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:4173/index.html >/dev/null; then break; fi
             sleep 1
