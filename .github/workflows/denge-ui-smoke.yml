@@ -78,6 +78,29 @@ jobs:
               if (!(await page.title()).includes('Denge')) throw new Error(target.name + ': page title missing');
               const bodyText = await page.locator('body').innerText(); console.log(target.name + ' body: ' + bodyText.slice(0,1200)); console.log(target.name + ' page errors: ' + JSON.stringify(pageErrors)); if (bodyText.trim().length < 5) throw new Error(target.name + ': app root stayed empty; pageErrors=' + pageErrors.join(' | '));
 
+              // Regression: income and expense should save through the normal transaction flow.
+              await page.locator('#quickAddFab').click();
+              await page.locator('#incomeBtn').click();
+              if ((await page.locator('#saveTx').innerText()).trim() !== 'Kaydet') {
+                throw new Error(target.name + ': income mode save label was overwritten');
+              }
+              await page.locator('#amount').fill('150');
+              await page.locator('#name').fill('Smoke Gelir Kaydı');
+              await page.locator('#saveTx').click();
+              await page.waitForFunction(() => {
+                const state = window.__dengeCloudBridge.getData();
+                return state.transactions.some(t => t.name === 'Smoke Gelir Kaydı' && t.type === 'income' && Number(t.amount) === 150);
+              }, null, { timeout: 5000 });
+
+              await page.locator('#quickAddFab').click();
+              await page.locator('#amount').fill('60');
+              await page.locator('#name').fill('Smoke Gider Kaydı');
+              await page.locator('#saveTx').click();
+              await page.waitForFunction(() => {
+                const state = window.__dengeCloudBridge.getData();
+                return state.transactions.some(t => t.name === 'Smoke Gider Kaydı' && t.type === 'expense' && Number(t.amount) === -60);
+              }, null, { timeout: 5000 });
+
               await page.locator('button.navitem[data-nav="profile"]').click();
               await page.getByText('Hesap yönetimi', { exact: true }).waitFor({ timeout: 5000 });
               await page.getByText('Finans araçları', { exact: true }).waitFor({ timeout: 5000 });
