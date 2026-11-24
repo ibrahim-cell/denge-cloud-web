@@ -152,6 +152,32 @@ jobs:
                 await page.locator('#app .profile-head h1').waitFor({ timeout: 5000 });
               }
 
+              // Recurring billing dates: support day 31 and preserve statement/final-payment days.
+              await page.locator('button[data-nav="recurring"]').first().click();
+              await page.locator('#addRecurring').click();
+              await page.locator('#recName').fill('Smoke 31 Gün Döngüsü');
+              await page.locator('#recAmount').fill('1250');
+              await page.locator('#recDay').fill('31');
+              await page.locator('#recStatementDay').fill('18');
+              await page.locator('#recPaymentDueDay').fill('27');
+              await page.locator('#recSave').click();
+              await page.waitForFunction(() => {
+                const state = window.__dengeCloudBridge.getData();
+                return state.recurring.some(r => r.name === 'Smoke 31 Gün Döngüsü' && r.dayOfMonth === 31 && r.statementDay === 18 && r.paymentDueDay === 27);
+              }, null, { timeout: 5000 });
+              const recurringCard = page.locator('.recurring-card').filter({ hasText: 'Smoke 31 Gün Döngüsü' }).first();
+              await recurringCard.waitFor({ timeout: 5000 });
+              await recurringCard.getByText('Fatura kesim: 18. gün · Son ödeme: 27. gün', { exact: false }).waitFor({ timeout: 5000 });
+              await recurringCard.locator('[data-recurring-edit]').click();
+              await page.locator('#recDay').fill('30');
+              await page.locator('#recStatementDay').fill('16');
+              await page.locator('#recPaymentDueDay').fill('29');
+              await page.locator('#recSave').click();
+              await page.waitForFunction(() => {
+                const state = window.__dengeCloudBridge.getData();
+                return state.recurring.some(r => r.name === 'Smoke 31 Gün Döngüsü' && r.dayOfMonth === 30 && r.statementDay === 16 && r.paymentDueDay === 29);
+              }, null, { timeout: 5000 });
+
               await page.locator('button[data-nav="debtOverview"]').click();
               await page.getByText('Borç / Alacak', { exact: true }).waitFor({ timeout: 5000 });
 
