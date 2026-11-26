@@ -950,7 +950,12 @@ function transferAccountsOf(transaction){
 }
 function computedAccountBalances(){
  const out={};
- (data.accounts||[]).forEach(a=>{const name=String(a.name||'');out[name]=Number(a.openingBalance!==undefined?a.openingBalance:((data.migration&&data.migration.sourceApp)?0:Number(a.balance||0)))||0});
+ (data.accounts||[]).forEach(a=>{const name=String(a.name||''),type=accountTypeOf(a),limit=Math.max(0,Number(a.creditLimit)||0);let opening=Number(a.openingBalance!==undefined?a.openingBalance:((data.migration&&data.migration.sourceApp)?0:Number(a.balance||0)))||0;
+  // Legacy card accounts sometimes have a configured limit but a zero opening balance.
+  // Seed the available-credit ledger with the limit so posted expenses reduce it correctly.
+  if(type==='credit'&&limit>0&&opening===0&&Number(a.balance||0)===0)opening=limit;
+  out[name]=opening;
+ });
  (data.transactions||[]).forEach(t=>{
   const type=t.type||((t.sourceType||'').toLowerCase()==='transfer'?'transfer':'');
   if(type==='transfer'){
