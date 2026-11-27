@@ -48,7 +48,7 @@ Eski kredi kartlarında ilk limit düzenlemesinde eski limit açılış noktası
 
 Nakit/banka hesabındaki gider veya transfer kaynak bakiyeyi eksiye düşürecekse; kredi kartı gideri kullanılabilir limiti aşacaksa işlem öncesinde uyarı gösterilir.
 
-Bu uyarılar bilinçli olarak yumuşaktır: kullanıcı işlemi iptal edebilir veya eksi bakiyeye/limit aşımına izin vererek devam edebilir. Finansal gerçekliği engellemek yerine kullanıcının kararını görünür kılar. Uyarıyı onaylamak, bakiyeyi ayrıca değiştirmez; işlem yine yalnızca deftere yazılır.
+Bu uyarılar yeni kayıt ve düzenleme akışlarında bilinçli olarak yumuşaktır: kullanıcı işlemi iptal edebilir veya eksi bakiyeye/limit aşımına izin vererek devam edebilir. Finansal gerçekliği engellemek yerine kullanıcının kararını görünür kılar. Uyarıyı onaylamak, bakiyeyi ayrıca değiştirmez; işlem yine yalnızca deftere yazılır.
 
 ## 5. Kategori ikonları
 
