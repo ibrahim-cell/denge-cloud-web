@@ -2813,17 +2813,16 @@ function showEditTransaction(id){
    if(!fromAccount||!toAccount||!accountNames.includes(fromAccount)||!accountNames.includes(toAccount)){showAlertCard('Kaynak ve hedef hesapları seçin.','Hesap seçilmedi','error');return}
    if(fromAccount===toAccount){showAlertCard('Kaynak ve hedef hesap aynı olamaz.','Transfer güncellenemedi','error');return}
    if(!date){showAlertCard('Tarih seçin.','Tarih gerekli','error');return}
-   t.type='transfer';
-   t.amount=0;
-   t.transferAmount=Math.round(amount*100)/100;
-   t.name=name||'Transfer';
-   t.category='Transfer';
-   t.fromAccount=fromAccount;
-   t.toAccount=toAccount;
-   t.account=toAccount;
-   t.date=date;
-   save();close();render();
-   toast('Transfer güncellendi. Hesap bakiyeleri yeniden hesaplandı.');
+   const currentBalances=computedAccountBalances(),oldAccounts=transferAccountsOf(t),oldAmount=transferAmountOf(t);
+   const currentFrom=Number(currentBalances[fromAccount]||0),oldImpact=oldAccounts.from===fromAccount?-oldAmount:(oldAccounts.to===fromAccount?oldAmount:0);
+   const afterFrom=Math.round((currentFrom-oldImpact-amount)*100)/100;
+   const commitTransferEdit=()=>{
+    t.type='transfer';t.amount=0;t.transferAmount=Math.round(amount*100)/100;t.name=name||'Transfer';t.category='Transfer';
+    t.fromAccount=fromAccount;t.toAccount=toAccount;t.account=toAccount;t.date=date;
+    save();close();render();toast('Transfer güncellendi. Hesap bakiyeleri yeniden hesaplandı.');
+   };
+   if(afterFrom<-.009){showBalanceWarning(fromAccount+' hesabının transfer düzenlemesinden sonraki bakiyesi '+money(afterFrom)+' olacak. Eksi bakiyeye izin vermek istiyor musun?',commitTransferEdit,'Kaynak hesap eksiye düşecek');return}
+   commitTransferEdit();
   };
   return;
  }
@@ -2852,7 +2851,15 @@ function showEditTransaction(id){
   if(!Number.isFinite(n)||n<=0){showAlertCard('Geçerli bir tutar girin.','Geçersiz tutar','error');return}
   if(!date){showAlertCard('Tarih seçin.','Tarih gerekli','error');return}
   if(!(data.accounts||[]).some(a=>isRealAccount(a.name)&&String(a.name)===String(account))){showAlertCard('İşlemin bağlı olacağı hesabı seçin.','Hesap seçilmedi','error');return}
-  t.amount=Math.round((type==='income'?n:-n)*100)/100;t.type=type;t.name=name||category;t.category=category;t.account=account;t.date=date;save();close();render();toast('İşlem güncellendi. Hesap bakiyesi yeniden hesaplandı.');
+  const nextAmount=Math.round((type==='income'?n:-n)*100)/100,currentBalance=Number(computedAccountBalances()[account]||0);
+  const oldContribution=String(t.account||'')===String(account)?Number(t.amount||0):0;
+  const afterBalance=Math.round((currentBalance-oldContribution+nextAmount)*100)/100;
+  const commitTransactionEdit=()=>{t.amount=nextAmount;t.type=type;t.name=name||category;t.category=category;t.account=account;t.date=date;save();close();render();toast('İşlem güncellendi. Hesap bakiyesi yeniden hesaplandı.')};
+  if(nextAmount<0&&afterBalance<-.009){
+   const selectedAccount=(data.accounts||[]).find(a=>String(a.name)===String(account)),isCredit=accountTypeOf(selectedAccount)==='credit';
+   showBalanceWarning(isCredit?'Bu düzenleme kredi kartının kullanılabilir limitini '+money(Math.abs(afterBalance))+' kadar aşacak. Devam etmek istiyor musun?':account+' hesabının düzenleme sonrası bakiyesi '+money(afterBalance)+' olacak. Eksi bakiyeye izin vermek istiyor musun?',commitTransactionEdit,isCredit?'Kredi kartı limiti aşılacak':'Hesap bakiyesi eksiye düşecek');return;
+  }
+  commitTransactionEdit();
  };
 }
 
