@@ -311,7 +311,7 @@
 .tx-edit-btn{background:#6758ef;color:#fff;box-shadow:0 7px 16px rgba(101,87,233,.18)}
 .tx-delete-btn{background:#ffe9ed;color:#d95768}.tx-modal-actions svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tx-edit-form label{display:block;font-size:10px;font-weight:800;color:#7f8799;margin:11px 0 5px}
-.tx-edit-form .edit-field{width:100%;height:47px;border:1px solid #dedbef;border-radius:14px;background:#fff;color:#172033;padding:0 13px;outline:none}
+.tx-edit-form .edit-type-switch{margin:5px 0 9px}.tx-edit-form .edit-type-switch .type-btn{height:44px;min-height:44px;border-radius:14px}.tx-edit-form .edit-type-switch .type-btn .type-svg{width:18px;height:18px}.tx-edit-form .edit-field{width:100%;height:47px;border:1px solid #dedbef;border-radius:14px;background:#fff;color:#172033;padding:0 13px;outline:none}
 .tx-edit-form .edit-field:focus{border-color:#8b7ff0;box-shadow:0 0 0 3px rgba(101,87,233,.09)}
 .tx-edit-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:17px}.tx-edit-actions button{height:44px;border-radius:14px;font-size:12px;font-weight:800}
 .tx-cancel{background:#eeedf5;color:#697184}.tx-save{background:#6758ef;color:#fff}
@@ -2715,10 +2715,18 @@ function showEditTransaction(id){
   };
   return;
  }
- const type=t.amount>=0?'income':'expense'; const cats=data.categories[type]||[];
- const html='<div class="tx-detail-modal" id="txEditModal"><div class="tx-modal-card"><div class="tx-modal-head"><span class="tx-modal-icon">'+sicon('edit')+'</span><div><h3>İşlemi düzenle</h3><p>Bilgilerini güncelle.</p></div><button class="tx-close" id="txEditClose">×</button></div><div class="tx-edit-form"><label>Tutar</label><input id="editAmount" class="edit-field" inputmode="decimal" value="'+esc(String(Math.abs(Number(t.amount)||0)))+'"><label>Açıklama</label><input id="editName" class="edit-field" value="'+esc(t.name||'')+'"><label>Kategori</label><button type="button" id="editCategory" class="edit-field edit-picker-trigger"><span>'+esc(t.category||cats[0]||'Kategori seç')+'</span><span class="chev">›</span></button><label>Hesap</label><button type="button" id="editAccount" class="edit-field edit-picker-trigger"><span>'+esc(t.account||data.accounts[0]?.name||'Hesap seç')+'</span><span class="chev">›</span></button><label>Tarih</label><input id="editDate" class="edit-field" type="date" value="'+esc(t.date||localDateISO())+'"><div class="tx-edit-actions"><button class="tx-cancel" id="txEditCancel">Vazgeç</button><button class="tx-save" id="txEditSave">Kaydet</button></div></div></div></div>';
+ let type=t.amount>=0?'income':'expense';let cats=data.categories[type]||[];
+ const html='<div class="tx-detail-modal" id="txEditModal"><div class="tx-modal-card"><div class="tx-modal-head"><span class="tx-modal-icon">'+sicon('edit')+'</span><div><h3>İşlemi düzenle</h3><p>Bilgilerini güncelle.</p></div><button class="tx-close" id="txEditClose">×</button></div><div class="tx-edit-form"><label>İşlem türü</label><div class="type-switch edit-type-switch"><button type="button" id="editIncomeType" class="type-btn income-type '+(type==='income'?'active':'')+'"><span class="type-svg">'+sicon('income')+'</span><b>Gelir</b></button><button type="button" id="editExpenseType" class="type-btn expense-type '+(type==='expense'?'active':'')+'"><span class="type-svg">'+sicon('expense')+'</span><b>Gider</b></button></div><label>Tutar</label><input id="editAmount" class="edit-field" inputmode="decimal" value="'+esc(String(Math.abs(Number(t.amount)||0)))+'"><label>Açıklama</label><input id="editName" class="edit-field" value="'+esc(t.name||'')+'"><label>Kategori</label><button type="button" id="editCategory" class="edit-field edit-picker-trigger"><span>'+esc(t.category||cats[0]||'Kategori seç')+'</span><span class="chev">›</span></button><label>Hesap</label><button type="button" id="editAccount" class="edit-field edit-picker-trigger"><span>'+esc(t.account||data.accounts[0]?.name||'Hesap seç')+'</span><span class="chev">›</span></button><label>Tarih</label><input id="editDate" class="edit-field" type="date" value="'+esc(t.date||localDateISO())+'"><div class="tx-edit-actions"><button class="tx-cancel" id="txEditCancel">Vazgeç</button><button class="tx-save" id="txEditSave">Kaydet</button></div></div></div></div>';
  document.body.insertAdjacentHTML('beforeend',html);
- const m=document.getElementById('txEditModal'),catBtn=document.getElementById('editCategory'),accBtn=document.getElementById('editAccount');let category=t.category||cats[0]||'';let account=t.account||data.accounts[0]?.name||'';
+ const m=document.getElementById('txEditModal'),catBtn=document.getElementById('editCategory'),accBtn=document.getElementById('editAccount'),incomeTypeBtn=document.getElementById('editIncomeType'),expenseTypeBtn=document.getElementById('editExpenseType');let category=t.category||cats[0]||'';let account=t.account||data.accounts[0]?.name||'';
+ const setEditType=nextType=>{
+  if(nextType!=='income'&&nextType!=='expense')return;
+  type=nextType;cats=Array.isArray(data.categories&&data.categories[type])?data.categories[type]:[];
+  if(!cats.includes(category))category=cats[0]||'';
+  catBtn.querySelector('span').textContent=category||'Kategori seç';
+  incomeTypeBtn.classList.toggle('active',type==='income');expenseTypeBtn.classList.toggle('active',type==='expense');
+ };
+ incomeTypeBtn.onclick=()=>setEditType('income');expenseTypeBtn.onclick=()=>setEditType('expense');
  const picker=(kind)=>{
   const items=kind==='category'?(data.categories[type]||[]):data.accounts.map(a=>a.name);const current=kind==='category'?category:account;
   const title=kind==='category'?'Kategori seç':'Hesap seç';const icon=kind==='category'?sicon('tag'):sicon('card');
@@ -2727,7 +2735,13 @@ function showEditTransaction(id){
  };
  catBtn.onclick=()=>picker('category');accBtn.onclick=()=>picker('account');
  const close=()=>m.remove();document.getElementById('txEditClose').onclick=close;document.getElementById('txEditCancel').onclick=close;m.onclick=e=>{if(e.target===m)close()};
- document.getElementById('txEditSave').onclick=()=>{const n=Number(String(document.getElementById('editAmount').value).replace(',','.'));const name=document.getElementById('editName').value.trim();const date=document.getElementById('editDate').value;if(!Number.isFinite(n)||n<=0){showAlertCard('Geçerli bir tutar girin.','Geçersiz tutar','error');return}if(!date){showAlertCard('Tarih seçin.','Tarih gerekli','error');return}t.amount=type==='income'?n:-n;t.name=name||category;t.category=category;t.account=account;t.date=date;save();close();render()};
+ document.getElementById('txEditSave').onclick=()=>{
+  const n=Number(String(document.getElementById('editAmount').value).replace(',','.')),name=document.getElementById('editName').value.trim(),date=document.getElementById('editDate').value;
+  if(!Number.isFinite(n)||n<=0){showAlertCard('Geçerli bir tutar girin.','Geçersiz tutar','error');return}
+  if(!date){showAlertCard('Tarih seçin.','Tarih gerekli','error');return}
+  if(!(data.accounts||[]).some(a=>isRealAccount(a.name)&&String(a.name)===String(account))){showAlertCard('İşlemin bağlı olacağı hesabı seçin.','Hesap seçilmedi','error');return}
+  t.amount=Math.round((type==='income'?n:-n)*100)/100;t.type=type;t.name=name||category;t.category=category;t.account=account;t.date=date;save();close();render();toast('İşlem güncellendi. Hesap bakiyesi yeniden hesaplandı.');
+ };
 }
 
 function showAddRecurring(existingRecord){
